@@ -10,14 +10,16 @@ from sanic_jinja2 import SanicJinja2
 async def create_app():
     app = Sanic("Stonks")
     app.static("/static", "./static")
-    await dao_manager.initialize()
+    # Leaving this here for now because we need to figure out how to handle situations like this
+    # await dao_manager.initialize()
 
     print("CREATING APP")
 
-    @app.listener("before_server_stop")
-    async def close_db(app, loop):
-        print("Closing database connection")
-        await dao_manager.db.close()
+    # Leaving this here for now because we need to figure out how to handle situations like this
+    # @app.listener("before_server_stop")
+    # async def close_db(app, loop):
+    #     print("Closing database connection")
+    #     await dao_manager.db.close()
 
     jinja = SanicJinja2(app)
 
