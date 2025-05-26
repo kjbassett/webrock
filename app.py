@@ -2,8 +2,7 @@ import asyncio
 
 import sys
 
-from data_access.dao_manager import dao_manager
-from plugins.load_plugins import load_plugins
+from load_plugins import load_plugins
 from sanic import Sanic, response
 from sanic_jinja2 import SanicJinja2
 
