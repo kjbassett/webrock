@@ -2,7 +2,7 @@ import asyncio
 
 import sys
 
-from load_plugins import load_plugins
+from webrock.load_plugins import load_plugins
 from sanic import Sanic, response
 from sanic_jinja2 import SanicJinja2
 
