@@ -71,6 +71,7 @@ def load_plugins(folder=""):
                 import_path = f"{relative_path}.{module_name}"
 
                 package = os.path.split(folder)[-1]
+                print(f"Importing module: {import_path} from package: {package}")
                 module = importlib.import_module(import_path, package=package)
 
                 for name, func in inspect.getmembers(module, inspect.isfunction):
