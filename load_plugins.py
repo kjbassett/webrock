@@ -3,8 +3,6 @@ import inspect
 import os
 import types
 
-from icecream import ic
-
 
 def load_plugin_metadata(func):
     """
@@ -53,7 +51,10 @@ def load_plugin_metadata(func):
     return metadata
 
 
-def load_plugins(folder="plugins"):
+def load_plugins(folder=""):
+    if not folder:
+        folder = os.getcwd()
+
     # metadata matches folder structure of plugin folder and holds metadata for each plugin. Used for webpage
     metadata = {}
     plugins = {}  # dict of plugin functions
