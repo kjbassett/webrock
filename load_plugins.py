@@ -60,6 +60,9 @@ def load_plugins(folder=""):
     plugins = {}  # dict of plugin functions
 
     for root, dirs, files in os.walk(folder):
+        if 'venv' in dirs:
+            dirs.remove('venv')
+
         for file in files:
             if file.endswith(".py") and file != "__init__.py":
                 relative_path = os.path.relpath(root, folder)
