@@ -102,7 +102,7 @@ def prepare_form_data(meta, form):
     # Since a web request can have duplicate keys, sanic puts everything in lists
     # Might have to change this later
 
-    sys.stdout.write(meta)
+    # TODO convert args to the right type based on the plugin's metadata
 
     return {k: v[0] for k, v in form.items()}
 
