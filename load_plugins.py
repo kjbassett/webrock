@@ -70,8 +70,8 @@ def load_plugins(folder=""):
                 module_name = os.path.splitext(file)[0]
                 import_path = f"{relative_path}.{module_name}"
 
-                # ic(import_path)
-                module = importlib.import_module(import_path, package=folder)
+                package = os.path.split(folder)[-1]
+                module = importlib.import_module(import_path, package=package)
 
                 for name, func in inspect.getmembers(module, inspect.isfunction):
                     if getattr(func, "is_plugin", False) and os.path.join(root, file) in inspect.getsourcefile(func):
