@@ -11,7 +11,8 @@ from importlib.resources import files
 
 async def create_app():
     app = Sanic("Stonks")
-    app.static("/static", "./static")
+    webrock_path = files('webrock')
+    app.static("/static", str(webrock_path / "static"))
 
     # Leaving this here for now because we need to figure out how to handle situations like this
     # dao_manager = DAOManager()
@@ -28,7 +29,7 @@ async def create_app():
     #     print("Closing database connection")
     #     await dao_manager.db.close()
 
-    templates_path = files('webrock').joinpath('templates')
+    templates_path = webrock_path / 'templates'
     jinja = SanicJinja2(app, loader=sanic_jinja2.FileSystemLoader(str(templates_path)))
 
     # import main from all py files in data_sources
