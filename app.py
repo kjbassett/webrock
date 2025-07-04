@@ -2,16 +2,23 @@ import asyncio
 
 import sys
 
+import sanic_jinja2
 from webrock.load_plugins import load_plugins
 from sanic import Sanic, response
 from sanic_jinja2 import SanicJinja2
+from importlib.resources import files
 
 
 async def create_app():
     app = Sanic("Stonks")
     app.static("/static", "./static")
+
+    # Leaving this here for now because we need to figure out how to handle situations like this
+    # dao_manager = DAOManager()
+
     # Leaving this here for now because we need to figure out how to handle situations like this
     # await dao_manager.initialize()
+    # is this useful???? app.ctx.dao_manager = dao_manager
 
     print("CREATING APP")
 
@@ -21,7 +28,8 @@ async def create_app():
     #     print("Closing database connection")
     #     await dao_manager.db.close()
 
-    jinja = SanicJinja2(app)
+    templates_path = files('webrock').joinpath('templates')
+    jinja = SanicJinja2(app, loader=sanic_jinja2.FileSystemLoader(str(templates_path)))
 
     # import main from all py files in data_sources
     metadata, plugins = load_plugins()
