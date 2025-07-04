@@ -18,6 +18,10 @@ setup(
             'rock=webrock.run:main',
         ],
     },
+    include_package_data=True,
+    package_data={
+        'webrock': ['templates/*', 'static/*', 'static/*'],
+    },
     long_description=long_description,
     long_description_content_type='text/markdown',
 )
