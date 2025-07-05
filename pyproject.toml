@@ -30,3 +30,6 @@ include-package-data = true
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["webrock", "webrock.*"]
+
+[tool.setuptools.package-data]
+"webrock" = ["templates/*", "static/*"]
