@@ -69,13 +69,16 @@ def load_plugins(folder=""):
                 if relative_path == ".":
                     relative_path = ""
                 else:
-                    relative_path = "." + relative_path.replace(os.sep, ".")
+                    relative_path = relative_path.replace(os.sep, ".")
                 module_name = os.path.splitext(file)[0]
-                import_path = f"{relative_path}.{module_name}"
+                import_path = f"{relative_path}.{module_name}".strip(".")
 
-                package = os.path.split(folder)[-1]
-                print(f"Importing module: {import_path} from package: {package}")
-                module = importlib.import_module(import_path, package=package)
+                print(f"Importing module: {import_path}")
+                try:
+                    module = importlib.import_module(import_path)
+                except ModuleNotFoundError as e:
+                    print(f"Error importing {import_path}: {e}")
+                    continue
 
                 for name, func in inspect.getmembers(module, inspect.isfunction):
                     if getattr(func, "is_plugin", False) and os.path.join(root, file) in inspect.getsourcefile(func):
