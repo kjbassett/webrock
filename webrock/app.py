@@ -105,12 +105,27 @@ def complete_callback(plugin):
 
 
 def prepare_form_data(meta, form):
-    # Since a web request can have duplicate keys, sanic puts everything in lists
-    # Might have to change this later
-
-    # TODO convert args to the right type based on the plugin's metadata
-
-    return {k: v[0] for k, v in form.items()}
+    form_data = {}
+    for arg in meta["args"]:
+        if arg["name"] not in form:
+            if "default" not in arg:
+                raise ValueError(f"Missing required argument {arg['name']}")
+            form_data[arg["name"]] = arg["default"]
+            continue
+        # convert form value to the right type. Type is stored as a string
+        _type = arg["type"]
+        value = form[arg["name"]][0]
+        if _type == "bool":
+            value = value.lower() == "true"
+        elif _type != "any":
+            try:
+                _type = __builtins__[arg["type"]]
+                value = _type(value)
+            except KeyError:
+                raise ValueError(f"Invalid type from  {arg['type']}. Type not in __builtins__.")
+        # take 0th index since a web request can have duplicate keys, sanic puts everything in lists
+        form_data[arg["name"]] = value
+    return form_data
 
 def run_sync_function(func, kwargs):
     return func(**kwargs)
