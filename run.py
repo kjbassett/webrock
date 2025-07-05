@@ -1,5 +1,5 @@
 import asyncio
-from webrock.app import create_app
+from .app import create_app
 
 
 def main():

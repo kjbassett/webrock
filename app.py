@@ -1,9 +1,9 @@
 import asyncio
 
-import sys
+from concurrent.futures import ThreadPoolExecutor
 
 import sanic_jinja2
-from webrock.load_plugins import load_plugins
+from .load_plugins import load_plugins
 from sanic import Sanic, response
 from sanic_jinja2 import SanicJinja2
 from importlib.resources import files
@@ -13,6 +13,7 @@ async def create_app():
     app = Sanic("Stonks")
     webrock_path = files('webrock')
     app.static("/static", str(webrock_path / "static"))
+    executor = ThreadPoolExecutor()
 
     # Leaving this here for now because we need to figure out how to handle situations like this
     # dao_manager = DAOManager()
@@ -51,7 +52,12 @@ async def create_app():
         if plugin["task"]:
             return response.json({"status": f"{plugin_name} is already running"})
         form_data = prepare_form_data(plugin, request.form)
-        plugin["task"] = asyncio.create_task(plugin["function"](**form_data))
+        if asyncio.iscoroutinefunction(plugin["function"]):
+            plugin["task"] = asyncio.create_task(plugin["function"](**form_data))
+        else:
+            # Run synchronous function in a separate thread
+            loop = asyncio.get_event_loop()
+            plugin["task"] = loop.run_in_executor(executor, run_sync_function, plugin["function"], form_data)
         plugin["task"].add_done_callback(complete_callback(plugin))
         print(f"Started {plugin_name}")
         return response.json({"status": f"{plugin_name} started"})
@@ -105,4 +111,8 @@ def prepare_form_data(meta, form):
     # TODO convert args to the right type based on the plugin's metadata
 
     return {k: v[0] for k, v in form.items()}
+
+def run_sync_function(func, kwargs):
+    return func(**kwargs)
+
 
