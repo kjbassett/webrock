@@ -1,6 +1,7 @@
 import importlib
 import inspect
 import os
+import sys
 import types
 
 
@@ -54,6 +55,7 @@ def load_plugin_metadata(func):
 def load_plugins(folder=""):
     if not folder:
         folder = os.getcwd()
+    sys.path.insert(0, str(folder))
 
     # metadata matches folder structure of plugin folder and holds metadata for each plugin. Used for webpage
     metadata = {}
