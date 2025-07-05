@@ -8,7 +8,6 @@ version = "0.1"
 description = "Webrock is a lightweight server designed to integrate seamlessly with Python projects."
 readme = "README.md"
 requires-python = ">=3.6"
-license = {text = "Specify your license here"}
 
 # Dependencies
 dependencies = [
@@ -27,6 +26,3 @@ rock = "webrock.run:main"
 # Include package data
 [tool.setuptools]
 include-package-data = true
-
-[tool.setuptools.package-data]
-"webrock" = ["templates/*", "static/*"]
