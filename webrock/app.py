@@ -58,7 +58,7 @@ async def create_app():
 
         if plugin["task"]:
             return response.json({"status": f"{plugin_name} is already running"})
-        form_data = prepare_form_data(plugin, request.form)
+        form_data = prepare_form_data(meta, request.form)
         if asyncio.iscoroutinefunction(plugin["function"]):
             plugin["task"] = asyncio.create_task(plugin["function"](**form_data))
         else:
