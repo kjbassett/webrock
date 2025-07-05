@@ -48,7 +48,14 @@ async def create_app():
         if plugin_name not in plugins:
             return response.json({"error": f"{plugin_name} not found"})
         print("Found plugin")
+
         plugin = plugins[plugin_name]
+
+        # get the right metadata for the plugin
+        meta = metadata
+        for meta_layer in plugin_name.split("."):
+            meta = meta[meta_layer]
+
         if plugin["task"]:
             return response.json({"status": f"{plugin_name} is already running"})
         form_data = prepare_form_data(plugin, request.form)
