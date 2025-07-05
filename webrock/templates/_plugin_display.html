@@ -4,7 +4,7 @@
     <div class="plugin">
         <h4>{{ plugin_name }}</h4>
         <form id="plugin-form-{{ plugin.id }}" action="/start/{{plugin.id}}" method="post">
-            {% for arg in plugin.arguments %}
+            {% for arg in plugin.args %}
                 <label class="form-label" for="{{ plugin.id + '.' + arg.name }}">{{ arg.name }}</label>
                 {% if arg['ui_element'] == 'textbox' %}
                     {{ forms.render_textbox(plugin.id, arg) }}

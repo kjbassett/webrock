@@ -9,15 +9,13 @@ def load_plugin_metadata(func):
     """
     example metadata structure:
     metadata = {
-        name,
-        doc,
-        arguments: [
-            {
-                name,
-                type,
-                default,
-                decorator_metadata['name'] if name in decorator_metadata
-            }],
+        name: str,
+        doc: str,
+        args: [{
+                name: str,
+                type: str,
+                default: any,
+            }], # each arg updated with decorator_metadata['name'] if name in decorator_metadata
         return_type,
         **decorator_metadata
     }
@@ -28,7 +26,7 @@ def load_plugin_metadata(func):
         "is_plugin": True,
         "name": func.__name__,
         "doc": func.__doc__,
-        "arguments": [],
+        "args": [],
         "return_type": str(signature.return_annotation.__name__),
     }
 
@@ -47,7 +45,7 @@ def load_plugin_metadata(func):
             ),
         }
         arg_info.update(func.decorator_metadata.get(name, {}))
-        metadata["arguments"].append(arg_info)
+        metadata["args"].append(arg_info)
 
     return metadata
 
