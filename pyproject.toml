@@ -26,3 +26,7 @@ rock = "webrock.run:main"
 # Include package data
 [tool.setuptools]
 include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["webrock", "webrock.*"]
