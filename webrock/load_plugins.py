@@ -50,7 +50,7 @@ def load_plugin_metadata(func):
     return metadata
 
 
-def load_plugins(folder=""):
+async def load_project(folder=""):
     if not folder:
         folder = os.getcwd()
     sys.path.insert(0, str(folder))
@@ -64,35 +64,49 @@ def load_plugins(folder=""):
             dirs.remove('venv')
 
         for file in files:
-            if file.endswith(".py") and file != "__init__.py":
-                relative_path = os.path.relpath(root, folder)
-                if relative_path == ".":
-                    relative_path = ""
-                else:
-                    relative_path = relative_path.replace(os.sep, ".")
-                module_name = os.path.splitext(file)[0]
-                import_path = f"{relative_path}.{module_name}".strip(".")
+            if not file.endswith(".py") or file == "__init__.py":
+                continue
+            relative_path = os.path.relpath(root, folder)
+            if relative_path == ".":
+                relative_path = ""
+            else:
+                relative_path = relative_path.replace(os.sep, ".")
+            module_name = os.path.splitext(file)[0]
+            import_path = f"{relative_path}.{module_name}".strip(".")
 
-                print(f"Importing module: {import_path}")
-                try:
-                    module = importlib.import_module(import_path)
-                except ModuleNotFoundError as e:
-                    print(f"Error importing {import_path}: {e}")
+            print(f"Importing module: {import_path}")
+            try:
+                module = importlib.import_module(import_path)
+            except ModuleNotFoundError as e:
+                print(f"Error importing {import_path}: {e}")
+                continue
+
+            for name, func in inspect.getmembers(module, inspect.isfunction):
+                # don't count the function if it's imported into this file. Only count if defined in this file
+                if not os.path.join(root, file) in inspect.getsourcefile(func):
                     continue
 
-                for name, func in inspect.getmembers(module, inspect.isfunction):
-                    if getattr(func, "is_plugin", False) and os.path.join(root, file) in inspect.getsourcefile(func):
-                        # add plugin function to plugins
-                        import_path = import_path.strip(".")
-                        func_path = f"{import_path}.{name}"
-                        plugins[func_path] = {"function": func, "task": None}
+                import_path = import_path.strip(".")
+                func_path = f"{import_path}.{name}"
 
-                        # add plugin metadata to folder-structured metadata
-                        parts = import_path.split(".")
-                        current_level = metadata
-                        # Recursively enter/create folder structure to put metadata in correct spot
-                        for part in parts:
-                            current_level = current_level.setdefault(part, {})
-                        current_level[name] = load_plugin_metadata(func)
-                        current_level[name]["id"] = func_path
+                if getattr(func, "is_plugin", False):
+                    load_plugin(func, func_path, import_path, metadata, name, plugins)
+                elif getattr(func, "init", False):
+                    if inspect.isawaitable(func):
+                        await func()
+                    else:
+                        func()
     return metadata, plugins
+
+
+def load_plugin(func, func_path, import_path, metadata, name, plugins):
+    # add plugin function to plugins
+    plugins[func_path] = {"function": func, "task": None}
+    # add plugin metadata to folder-structured metadata
+    parts = import_path.split(".")
+    current_level = metadata
+    # Recursively enter/create folder structure to put metadata in correct spot
+    for part in parts:
+        current_level = current_level.setdefault(part, {})
+    current_level[name] = load_plugin_metadata(func)
+    current_level[name]["id"] = func_path

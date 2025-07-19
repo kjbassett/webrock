@@ -5,3 +5,7 @@ def plugin(**decorator_metadata):
         return func
 
     return decorator
+
+def init(func):
+    func.init = True
+    return func

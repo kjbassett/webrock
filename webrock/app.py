@@ -3,7 +3,7 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
 import sanic_jinja2
-from .load_plugins import load_plugins
+from .load_plugins import load_project
 from sanic import Sanic, response
 from sanic_jinja2 import SanicJinja2
 from importlib.resources import files
@@ -34,7 +34,7 @@ async def create_app():
     jinja = SanicJinja2(app, loader=sanic_jinja2.FileSystemLoader(str(templates_path)))
 
     # import main from all py files in data_sources
-    metadata, plugins = load_plugins()
+    metadata, plugins = await load_project()
 
     @app.route("/")
     async def index(request):
