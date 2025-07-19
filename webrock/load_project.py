@@ -93,11 +93,18 @@ async def load_project(folder=""):
                 if getattr(func, "is_plugin", False):
                     load_plugin(func, func_path, import_path, metadata, name, plugins)
                 elif getattr(func, "init", False):
-                    if iscoroutinefunction(func):
-                        await func()
-                    else:
-                        func()
+                    await run_init(func)
     return metadata, plugins
+
+
+async def run_init(func):
+    try:
+        if iscoroutinefunction(func):
+            await func()
+        else:
+            func()
+    except Exception as e:
+        print(f"Error running init function {func.__name__}: {e}")
 
 
 def load_plugin(func, func_path, import_path, metadata, name, plugins):
