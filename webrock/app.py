@@ -3,7 +3,7 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
 import sanic_jinja2
-from .load_plugins import load_project
+from .load_project import load_project
 from sanic import Sanic, response
 from sanic_jinja2 import SanicJinja2
 from importlib.resources import files

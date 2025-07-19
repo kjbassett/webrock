@@ -1,3 +1,4 @@
+from asyncio import iscoroutinefunction
 import importlib
 import inspect
 import os
@@ -92,7 +93,7 @@ async def load_project(folder=""):
                 if getattr(func, "is_plugin", False):
                     load_plugin(func, func_path, import_path, metadata, name, plugins)
                 elif getattr(func, "init", False):
-                    if inspect.isawaitable(func):
+                    if iscoroutinefunction(func):
                         await func()
                     else:
                         func()
