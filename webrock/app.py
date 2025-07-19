@@ -17,12 +17,6 @@ async def create_app():
 
     print("CREATING APP")
 
-    # Leaving this here for now because we need to figure out how to handle situations like this
-    # @app.listener("before_server_stop")
-    # async def close_db(app, loop):
-    #     print("Closing database connection")
-    #     await dao_manager.db.close()
-
     templates_path = webrock_path / 'templates'
     jinja = SanicJinja2(app, loader=sanic_jinja2.FileSystemLoader(str(templates_path)))
 
@@ -30,7 +24,7 @@ async def create_app():
     metadata, plugins, shutdown_funcs = await load_project()
 
     @app.listener("before_server_stop")
-    async def close_tasks():
+    async def close_tasks(app):
         for func in shutdown_funcs:
             try:
                 if asyncio.iscoroutinefunction(func):
