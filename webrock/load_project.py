@@ -104,7 +104,10 @@ async def run_init(func):
         else:
             func()
     except Exception as e:
-        print(f"Error running init function {func.__name__}: {e}")
+        print(f"Error running init function {func.__name__}")
+        print(f"Error:")
+        print(e)
+
 
 
 def load_plugin(func, func_path, import_path, metadata, name, plugins):
