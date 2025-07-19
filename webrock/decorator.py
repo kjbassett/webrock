@@ -6,6 +6,12 @@ def plugin(**decorator_metadata):
 
     return decorator
 
+
 def init(func):
     func.init = True
+    return func
+
+
+def shutdown(func):
+    func.shutdown = True
     return func

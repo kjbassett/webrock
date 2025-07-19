@@ -59,6 +59,7 @@ async def load_project(folder=""):
     # metadata matches folder structure of plugin folder and holds metadata for each plugin. Used for webpage
     metadata = {}
     plugins = {}  # dict of plugin functions
+    shutdown_funcs = []
 
     for root, dirs, files in os.walk(folder):
         if 'venv' in dirs:
@@ -94,7 +95,10 @@ async def load_project(folder=""):
                     load_plugin(func, func_path, import_path, metadata, name, plugins)
                 elif getattr(func, "init", False):
                     await run_init(func)
-    return metadata, plugins
+                elif getattr(func, "shutdown", False):
+                    shutdown_funcs.append(func)
+
+    return metadata, plugins, shutdown_funcs
 
 
 async def run_init(func):

@@ -15,13 +15,6 @@ async def create_app():
     app.static("/static", str(webrock_path / "static"))
     executor = ThreadPoolExecutor()
 
-    # Leaving this here for now because we need to figure out how to handle situations like this
-    # dao_manager = DAOManager()
-
-    # Leaving this here for now because we need to figure out how to handle situations like this
-    # await dao_manager.initialize()
-    # is this useful???? app.ctx.dao_manager = dao_manager
-
     print("CREATING APP")
 
     # Leaving this here for now because we need to figure out how to handle situations like this
@@ -34,7 +27,19 @@ async def create_app():
     jinja = SanicJinja2(app, loader=sanic_jinja2.FileSystemLoader(str(templates_path)))
 
     # import main from all py files in data_sources
-    metadata, plugins = await load_project()
+    metadata, plugins, shutdown_funcs = await load_project()
+
+    @app.listener("before_server_stop")
+    async def close_tasks():
+        for func in shutdown_funcs:
+            try:
+                if asyncio.iscoroutinefunction(func):
+                    await func()
+                else:
+                    func()
+            except Exception as e:
+                print(f"Error running shutdown procedure {func.__name__}: {e}")
+
 
     @app.route("/")
     async def index(request):
@@ -121,6 +126,7 @@ def prepare_form_data(meta, form):
             continue
         # convert form value to the right type. Type is stored as a string
         _type = arg["type"]
+        # take 0th index since a web request can have duplicate keys, sanic puts everything in lists
         value = form[arg["name"]][0]
         if _type == "bool":
             value = value.lower() == "true"
@@ -130,11 +136,8 @@ def prepare_form_data(meta, form):
                 value = _type(value)
             except KeyError:
                 raise ValueError(f"Invalid type from  {arg['type']}. Type not in __builtins__.")
-        # take 0th index since a web request can have duplicate keys, sanic puts everything in lists
         form_data[arg["name"]] = value
     return form_data
 
 def run_sync_function(func, kwargs):
     return func(**kwargs)
-
-
