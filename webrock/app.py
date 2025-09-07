@@ -1,4 +1,5 @@
 import asyncio
+import traceback
 
 from concurrent.futures import ThreadPoolExecutor
 
@@ -105,6 +106,7 @@ def complete_callback(plugin):
             print(f"Result: {result}")
         except Exception as e:
             print(f"Error in {plugin['function'].__name__}: {str(e)}")
+            traceback.print_exc()
         plugin["task"] = None
 
     return callback
