@@ -11,7 +11,7 @@ from importlib.resources import files
 
 
 async def create_app():
-    app = Sanic("Stonks")
+    app = Sanic("Your app")
     webrock_path = files('webrock')
     app.static("/static", str(webrock_path / "static"))
     executor = ThreadPoolExecutor()
