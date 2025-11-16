@@ -49,5 +49,22 @@
         <div class="tooltip">
             <span class="tooltiptext">{{ plugin.doc }}</span>
         </div>
+
+        <!-- Scheduler controls -->
+    <div class="scheduler mt-2">
+        <h5>Schedule</h5>
+        <select id="schedule-type-{{ plugin.id }}">
+            <option value="interval">Interval (seconds)</option>
+            <option value="cron">Specific Time (HH:MM)</option>
+            <option value="once">One-Time</option>
+        </select>
+        <input type="text" id="schedule-value-{{ plugin.id }}" placeholder="60 for interval, HH:MM for cron">
+        <button class="btn btn-primary btn-sm" onclick="addSchedule('{{ plugin.id }}')">Add</button>
+
+        <ul id="schedule-list-{{ plugin.id }}" class="mt-1">
+            <!-- Existing schedules will appear here -->
+        </ul>
+    </div>
+
     </div>
 {% endmacro %}
