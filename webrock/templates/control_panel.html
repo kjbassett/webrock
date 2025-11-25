@@ -27,10 +27,5 @@
         {{ render_plugins(metadata) }}
     </div>
 
-    <script>
-        {% for plugin in plugins %}
-            setInterval(() => checkStatusAndUpdateLight('{{ plugin }}'), 5000);
-        {% endfor %}
-    </script>
 </body>
 </html>

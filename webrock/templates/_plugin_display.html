@@ -3,7 +3,7 @@
 {% macro render_plugin(plugin_name, plugin) %}
     <div class="plugin">
         <h4>{{ plugin_name }}</h4>
-        <form id="plugin-form-{{ plugin.id }}" action="/start/{{plugin.id}}" method="post">
+        <form id="plugin-form-{{ plugin.id }}" action="/schedule_job/{{plugin.id}}" method="post">
             {% for arg in plugin.args %}
                 <label class="form-label" for="{{ plugin.id + '.' + arg.name }}">{{ arg.name }}</label>
                 {% if arg['ui_element'] == 'textbox' %}
@@ -43,28 +43,112 @@
                 {% endif %}
                 <!-- Add other UI elements as needed -->
             {% endfor %}
-            <button class="btn btn-success" type="submit">Start</button>
+            <div class="tooltip">
+                <span class="tooltiptext">{{ plugin.doc }}</span>
+            </div>
+            <h5>Schedule</h5>
+            <!-- Schedule Type -->
+            <label class="form-label" for="schedule-type-{{ plugin.id }}">Schedule Type</label>
+            <select class="form-select" id="schedule-type-{{ plugin.id }}"
+                    name="_schedule_type" onchange="updateScheduleFields('{{ plugin.id }}')">
+                <option value="once">One-Time</option>
+                <option value="interval">Every X Seconds</option>
+                <option value="cron">Specific Time</option>
+            </select>
+
+            <!-- ONCE -->
+            <div id="schedule-once-wrap-{{ plugin.id }}" class="mt-2">
+                <label class="form-label">Run At</label>
+                {{ forms.render_datetime_local(plugin.id, {
+                    "name": "_timestamp"
+                }) }}
+            </div>
+
+            <!-- INTERVAL -->
+            <div id="schedule-interval-wrap-{{ plugin.id }}" class="mt-2" style="display:none;">
+                <label class="form-label">Interval Seconds</label>
+                {{ forms.render_number(plugin.id, {
+                    "name": "_seconds",
+                    "default": 60,
+                    "min": 1,
+                    "max": 86400
+                }) }}
+            </div>
+
+            <!-- CRON -->
+            <div id="schedule-cron-wrap-{{ plugin.id }}" class="mt-2" style="display:none;">
+                <label class="form-label">CRON Schedule</label>
+
+                <div class="row g-2">
+
+                    <!-- Minutes -->
+                    <div class="col">
+                        <label class="form-label">Minute (0-59)</label>
+                        {{ forms.render_textbox(plugin.id, {
+                            "name": "_minutes",
+                            "default": "*",
+                            "placeholder": "*, 0, 0-5, 10,20, */5"
+                        }) }}
+                    </div>
+
+                    <!-- Hours -->
+                    <div class="col">
+                        <label class="form-label">Hour (0-23)</label>
+                        {{ forms.render_textbox(plugin.id, {
+                            "name": "_hours",
+                            "default": "*",
+                            "placeholder": "*, 3, 0-6, 9,15, */2"
+                        }) }}
+                    </div>
+                </div>
+
+                <!-- Day of Week -->
+                <div class="mt-2">
+                    <label class="form-label">Day of Week (0-6, Sun-Sat, or lists)</label>
+                    {{ forms.render_textbox(plugin.id, {
+                        "name": "_days_of_week",
+                        "default": "*",
+                        "placeholder": "*, mon, fri-sun, 0,1,2"
+                    }) }}
+                </div>
+
+                <div class="row g-2 mt-2">
+                    <!-- Day of Month -->
+                    <div class="col">
+                        <label class="form-label">Day of Month (1-31)</label>
+                        {{ forms.render_textbox(plugin.id, {
+                            "name": "_days_of_month",
+                            "default": "*",
+                            "placeholder": "*, 1, 1-5, 10,15"
+                        }) }}
+                    </div>
+
+                    <!-- Months -->
+                    <div class="col">
+                        <label class="form-label">Month (1-12 or Jan-Dec)</label>
+                        {{ forms.render_textbox(plugin.id, {
+                            "name": "_months",
+                            "default": "*",
+                            "placeholder": "*, jan, feb-mar, 1,3,5"
+                        }) }}
+                    </div>
+                </div>
+            </div>
+
+            <button class="btn btn-primary btn-sm mt-3" type="submit">Schedule Job</button>
             <button class="btn btn-danger" type="button" onclick="stop('{{ plugin.id }}')">Stop</button>
         </form>
-        <div class="tooltip">
-            <span class="tooltiptext">{{ plugin.doc }}</span>
-        </div>
 
-        <!-- Scheduler controls -->
-    <div class="scheduler mt-2">
-        <h5>Schedule</h5>
-        <select id="schedule-type-{{ plugin.id }}">
-            <option value="interval">Interval (seconds)</option>
-            <option value="cron">Specific Time (HH:MM)</option>
-            <option value="once">One-Time</option>
-        </select>
-        <input type="text" id="schedule-value-{{ plugin.id }}" placeholder="60 for interval, HH:MM for cron">
-        <button class="btn btn-primary btn-sm" onclick="addSchedule('{{ plugin.id }}')">Add</button>
-
-        <ul id="schedule-list-{{ plugin.id }}" class="mt-1">
-            <!-- Existing schedules will appear here -->
-        </ul>
-    </div>
+        <table class="table table-sm table-bordered mt-3 mb-0">
+            <thead>
+                <tr>
+                    <th>Job</th>
+                    <th>Next Run</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="schedule-list-{{ plugin.id }}"></tbody>
+        </table>
 
     </div>
 {% endmacro %}
