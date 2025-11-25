@@ -24,15 +24,13 @@ def form_to_job_schedule(meta, form):
     schedule = {"type": schedule_type}
 
     if schedule_type == "once":
-        when = get_value("_timestamp", "now")
-        if when == "now":
-            schedule["timestamp"] = datetime.utcnow()
-        else:
-            # Let user pass an ISO timestamp or date/time input
+        ts = get_value("_timestamp", "now")
+        if ts != "now":
             try:
-                schedule["timestamp"] = datetime.fromisoformat(when)
+                datetime.fromisoformat(ts)
             except ValueError:
-                raise ValueError(f"Invalid timestamp: {when}")
+                raise ValueError(f"Invalid timestamp: {ts}")
+        schedule['timestamp'] = ts
 
     elif schedule_type == "interval":
         seconds_raw = get_value("_seconds")
@@ -168,7 +166,7 @@ def calculate_next_run(schedule):
 
     # --- ONCE ---
     if stype == "once":
-        return schedule["timestamp"]
+        return int(datetime.fromisoformat(schedule["timestamp"]).timestamp())
 
     last_run = schedule["last_run"]
 
