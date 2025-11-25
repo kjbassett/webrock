@@ -94,17 +94,15 @@ MONTH_LOOKUP = {name.lower(): i for i, name in enumerate(calendar.month_name) if
 MONTH_LOOKUP.update(
     {name.lower(): i for i, name in enumerate(calendar.month_abbr) if name}
 )
+MONTH_LOOKUP.update({str(n): n for n in range(1, 13)})
 
 
 def parse_cron_field(raw):
     """
-    Convert a string or list into a sorted set of allowed int values.
+    Convert a string into a sorted set of allowed int values.
     Accepts '*', '1,2,5-7', etc.
     Returns None for wildcard.
     """
-    if isinstance(raw, list):
-        raw = ",".join(raw)
-
     raw = raw.strip()
 
     if raw == "*" or raw == "":
@@ -129,9 +127,6 @@ def parse_month_field(raw):
     Same as parse_cron_field but supports month names.
     Returns None for wildcard.
     """
-    if isinstance(raw, list):
-        raw = ",".join(raw)
-
     raw = raw.strip()
     if raw == "*" or raw == "":
         return None
@@ -144,8 +139,8 @@ def parse_month_field(raw):
         if "-" in p:
             # Range, but may be names
             start, end = p.split("-", 1)
-            start = MONTH_LOOKUP.get(start, int(start))
-            end = MONTH_LOOKUP.get(end, int(end))
+            start = MONTH_LOOKUP.get(start)
+            end = MONTH_LOOKUP.get(end)
             result.update(range(start, end + 1))
             continue
 
