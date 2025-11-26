@@ -174,11 +174,18 @@ class TestCalculateNextRun(unittest.TestCase):
             "months": "*"
         }
         # Next time is Jan 1 01:00
+        next_run = calculate_next_run(schedule)
         self.assertEqual(
-            calculate_next_run(schedule),
+            next_run,
             self.dt(2025, 1, 1, 1, 0)
         )
 
+        schedule["last_run"] = next_run
+        next_run = calculate_next_run(schedule)
+        self.assertEqual(
+            next_run,
+            self.dt(2025, 1, 1, 2, 0)
+        )
     # ---------------------------
     # CRON – Day-of-week / Day-of-month OR logic
     # ---------------------------
