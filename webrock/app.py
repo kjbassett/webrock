@@ -37,8 +37,10 @@ async def create_app():
                 i = 0
                 while i < len(job_schedules):
                     js = job_schedules[i]
+                    if "next_run" not in js["schedule"]:  # schedule recently created or resumed
+                        js["schedule"]["next_run"] = calculate_next_run(js["schedule"])
                     now = time.time()
-                    next_run = js["schedule"].get("next_run", 0)
+                    next_run = js["schedule"]["next_run"]
                     if now < next_run:
                         i += 1
                         continue
@@ -167,3 +169,8 @@ def complete_callback(plugin):
 
 def run_sync_function(func, kwargs):
     return func(**kwargs)
+
+
+# TODO
+#  ValueError: invalid literal for int() with base 10: 'Mon', schedule_utils.py, line 116
+

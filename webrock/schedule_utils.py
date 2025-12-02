@@ -70,7 +70,7 @@ def form_to_job_schedule(meta, form):
         if _type == "bool":
             # Works for both scheduler & Sanic
             if isinstance(value, str):
-                value = value.lower() == "true"
+                value = value.lower() in ("true", "on")
             else:
                 value = bool(value)
 
@@ -162,6 +162,7 @@ def calculate_next_run(schedule):
     return the next UTC datetime the job should run.
     """
 
+
     stype = schedule["type"]
 
     # --- ONCE ---
@@ -172,6 +173,8 @@ def calculate_next_run(schedule):
 
     # --- INTERVAL ---
     if stype == "interval":
+        if "last_run" not in schedule:  # recently created or resumed
+            return int(datetime.now().timestamp())
         seconds = schedule["seconds"]
         return last_run + seconds
 
@@ -211,7 +214,13 @@ def calculate_next_run(schedule):
 
 def load_schedules(schedule_file):
     if schedule_file.exists():
-        return json.loads(schedule_file.read_text())
+        schedule = json.loads(schedule_file.read_text())
+
+        # clear next_run times if already missed
+        for plugin in schedule.keys():
+            for sched in schedule[plugin]:
+                if "next_run" in sched['schedule'] and sched['schedule']['next_run'] < datetime.now().timestamp():
+                    del sched['schedule']["next_run"]
     return {}
 
 
