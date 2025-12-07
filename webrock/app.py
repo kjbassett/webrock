@@ -4,7 +4,12 @@ import traceback
 from concurrent.futures import ThreadPoolExecutor
 import sanic_jinja2
 
-from .schedule_utils import form_to_job_schedule, calculate_next_run, load_schedules, save_schedules
+from .schedule_utils import (
+    form_to_job_schedule,
+    calculate_next_run,
+    load_schedules,
+    save_schedules,
+)
 from .load_project import load_project
 from sanic import Sanic, response
 from sanic_jinja2 import SanicJinja2
@@ -37,8 +42,11 @@ async def create_app():
                 i = 0
                 while i < len(job_schedules):
                     js = job_schedules[i]
-                    if "next_run" not in js["schedule"]:  # schedule recently created or resumed
+                    if (
+                        "next_run" not in js["schedule"]
+                    ):  # schedule recently created or resumed
                         js["schedule"]["next_run"] = calculate_next_run(js["schedule"])
+                        save_schedules(schedule_file, schedules)
                     now = time.time()
                     next_run = js["schedule"]["next_run"]
                     if now < next_run:
@@ -82,6 +90,7 @@ async def create_app():
 
     @app.listener("after_server_start")
     async def start_schedules(app, loop):
+        print("starting schedules")
         asyncio.create_task(run_schedules())
 
     # --- Plugin Routes ---
@@ -173,4 +182,3 @@ def run_sync_function(func, kwargs):
 
 # TODO
 #  ValueError: invalid literal for int() with base 10: 'Mon', schedule_utils.py, line 116
-

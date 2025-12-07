@@ -167,14 +167,16 @@ def calculate_next_run(schedule):
 
     # --- ONCE ---
     if stype == "once":
+        if schedule["timestamp"] == "now":
+            return datetime.now().timestamp()
         return int(datetime.fromisoformat(schedule["timestamp"]).timestamp())
 
-    last_run = schedule["last_run"]
+    last_run = schedule.get("last_run", int(datetime.now().timestamp()))
 
     # --- INTERVAL ---
     if stype == "interval":
         if "last_run" not in schedule:  # recently created or resumed
-            return int(datetime.now().timestamp())
+            return datetime.now().timestamp()
         seconds = schedule["seconds"]
         return last_run + seconds
 
@@ -186,7 +188,7 @@ def calculate_next_run(schedule):
     dow = parse_cron_field(schedule["days_of_week"])
     months = parse_month_field(schedule["months"])
 
-    # Start checking from now+1min
+    # Start checking from last_run + 1min
     t = datetime.fromtimestamp(last_run) + timedelta(minutes=1)
     t = t.replace(second=0, microsecond=0)
 
@@ -198,10 +200,8 @@ def calculate_next_run(schedule):
             matches(t.minute, minutes)
             and matches(t.hour, hours)
             and matches(t.month, months)
-            and (
-                matches(t.day, dom)
-                or matches(t.weekday(), dow)  # Python weekday: Mon=0..Sun=6
-            )
+            and matches(t.day, dom)
+            and matches(t.weekday(), dow)  # Python weekday: Mon=0...Sun=6
         ):
             return int(t.timestamp())
 
@@ -221,6 +221,7 @@ def load_schedules(schedule_file):
             for sched in schedule[plugin]:
                 if "next_run" in sched['schedule'] and sched['schedule']['next_run'] < datetime.now().timestamp():
                     del sched['schedule']["next_run"]
+        return schedule
     return {}
 
 
