@@ -38,7 +38,6 @@ async def create_app():
             for plugin_id, job_schedules in schedules.items():
                 if plugin_id not in plugins:
                     continue
-                plugin = plugins[plugin_id]
                 i = 0
                 while i < len(job_schedules):
                     js = job_schedules[i]
@@ -49,14 +48,22 @@ async def create_app():
                         save_schedules(schedule_file, schedules)
                     now = time.time()
                     next_run = js["schedule"]["next_run"]
+
+                    # skip if it's not time yet
                     if now < next_run:
                         i += 1
                         continue
+
+                    # run job
                     args = js.get("args", {})
+                    plugin = plugins[plugin_id]
                     await run_job(plugin, args)
                     print(f"Scheduled start of {plugin_id}")
+
+                    # delete job if it's a one time run
                     if js["schedule"]["type"] == "once":
                         del job_schedules[i]
+                    # otherwise calculate next run
                     else:
                         js["schedule"]["last_run"] = now
                         js["schedule"]["next_run"] = calculate_next_run(js["schedule"])
