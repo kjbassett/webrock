@@ -64,6 +64,12 @@ async def load_project(folder=""):
     for root, dirs, files in os.walk(folder):
         if 'venv' in dirs:
             dirs.remove('venv')
+        
+        if '.venv' in dirs:
+            dirs.remove('.venv')
+        
+        if 'tests' in dirs:
+            dirs.remove('tests')
 
         for file in files:
             if not file.endswith(".py") or file == "__init__.py":

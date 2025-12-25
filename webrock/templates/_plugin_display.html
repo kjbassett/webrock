@@ -1,7 +1,7 @@
 {% import '_form_macros.html' as forms %}
 
 {% macro render_plugin(plugin_name, plugin) %}
-    <div class="plugin">
+    <div class="plugin col-md-6">
         <h4>{{ plugin_name }}</h4>
         <form id="plugin-form-{{ plugin.id }}" action="/schedule_job/{{plugin.id}}" method="post">
             {% for arg in plugin.args %}
@@ -49,15 +49,14 @@
             <h5>Schedule</h5>
             <!-- Schedule Type -->
             <label class="form-label" for="schedule-type-{{ plugin.id }}">Schedule Type</label>
-            <select class="form-select" id="schedule-type-{{ plugin.id }}"
-                    name="_schedule_type" onchange="updateScheduleFields('{{ plugin.id }}')">
+            <select class="form-select" id="schedule-type-{{ plugin.id }}" name="_schedule_type" onchange="updateScheduleFields('{{ plugin.id }}')">
                 <option value="once">One-Time</option>
                 <option value="interval">Every X Seconds</option>
                 <option value="cron">Specific Time</option>
             </select>
 
             <!-- ONCE -->
-            <div id="schedule-once-wrap-{{ plugin.id }}" class="mt-2">
+            <div id="schedule-once-wrap-{{ plugin.id }}" class="my-2">
                 <label class="form-label">Run At</label>
                 {{ forms.render_datetime_local(plugin.id, {
                     "name": "_timestamp"
@@ -65,7 +64,7 @@
             </div>
 
             <!-- INTERVAL -->
-            <div id="schedule-interval-wrap-{{ plugin.id }}" class="mt-2" style="display:none;">
+            <div id="schedule-interval-wrap-{{ plugin.id }}" class="my-2" style="display:none;">
                 <label class="form-label">Interval Seconds</label>
                 {{ forms.render_number(plugin.id, {
                     "name": "_seconds",
@@ -76,7 +75,7 @@
             </div>
 
             <!-- CRON -->
-            <div id="schedule-cron-wrap-{{ plugin.id }}" class="mt-2" style="display:none;">
+            <div id="schedule-cron-wrap-{{ plugin.id }}" class="my-2" style="display:none;">
                 <label class="form-label">CRON Schedule</label>
 
                 <div class="row g-2">
@@ -135,11 +134,13 @@
                 </div>
             </div>
 
-            <button class="btn btn-primary btn-sm mt-3" type="submit">Schedule Job</button>
-            <button class="btn btn-danger" type="button" onclick="stop('{{ plugin.id }}')">Stop</button>
+            <div class="my-2">
+                <button class="btn btn-primary" type="submit">Schedule Job</button>
+                <button class="btn btn-danger" type="button" onclick="stop('{{ plugin.id }}')">Stop</button>
+            </div>
         </form>
 
-        <table class="table table-sm table-bordered mt-3 mb-0">
+        <table class="table table-sm table-bordered my-2 mb-0">
             <thead>
                 <tr>
                     <th>Job</th>
