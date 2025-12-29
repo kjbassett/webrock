@@ -40,6 +40,8 @@
                     {{ forms.render_number(plugin.id, arg) }}
                 {% elif arg['type'] == 'bool' %}
                     {{ forms.render_checkbox(plugin.id, arg) }}
+                {% else %}
+                    {{ forms.render_textbox(plugin.id, arg) }}
                 {% endif %}
                 <!-- Add other UI elements as needed -->
             {% endfor %}
