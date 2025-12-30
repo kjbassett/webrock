@@ -38,6 +38,10 @@
                     {{ forms.render_textbox(plugin.id, arg) }}
                 {% elif arg['type'] == 'int' %}
                     {{ forms.render_number(plugin.id, arg) }}
+                {% elif arg['type'] == 'float' %}
+                    {{ forms.render_number(plugin.id, arg) }}
+                <!--{% elif arg['type'] == 'complex' %}
+                    {{ forms.render_number(plugin.id, arg) }}-->
                 {% elif arg['type'] == 'bool' %}
                     {{ forms.render_checkbox(plugin.id, arg) }}
                 {% else %}
