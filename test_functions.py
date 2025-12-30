@@ -8,13 +8,13 @@ def greet(name):
 
 # 2. Function with default argument
 @plugin()
-def power(base, exponent=2):
+def power(base: float, exponent: float = 2):
     return base ** exponent
 
 
 # 3. Function with conditional logic
 @plugin()
-def is_even(n):
+def is_even(n: int):
     return n % 2 == 0
 
 
@@ -33,18 +33,21 @@ def min_max(values):
 
 
 # 6. Function using *args
+@plugin()
 def add_all(*nums):
     return sum(nums)
 
 
 # 7. Function with keyword arguments
+@plugin()
 def build_url(base, **params):
     query = "&".join(f"{k}={v}" for k, v in params.items())
     return f"{base}?{query}" if query else base
 
 
 # 8. Recursive function
-def factorial(n):
+@plugin()
+def factorial(n: float):
     if n <= 1:
         return 1
     return n * factorial(n - 1)
