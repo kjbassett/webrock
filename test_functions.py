@@ -20,7 +20,7 @@ def is_even(n: int):
 
 # 4. Function working with lists
 @plugin()
-def average(numbers):
+def average(numbers: list):
     if not numbers:
         return 0
     return sum(numbers) / len(numbers)
