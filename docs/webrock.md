@@ -4,7 +4,7 @@
 Webrock is a lightweight web control panel for “plugin” functions inside any Python project. Mark functions with the `@plugin` decorator, start the server, and Webrock scans your project, renders a UI to configure arguments, and lets you schedule or stop those functions.
 
 ## How the app operates
-1. **Startup**: The CLI entry point launches the Sanic server.
+1. **Startup**: `sanic webrock.run:main`. The CLI entry point launches the Sanic server.
 2. **Project scan**: The server walks the current project, imports modules, and identifies `@plugin`, `@init`, and `@shutdown` functions.
 3. **Metadata build**: Plugin signatures and decorator metadata become UI fields.
 4. **UI render**: Jinja templates render a control panel with forms for each plugin.
@@ -81,7 +81,7 @@ def cleanup():
 
 @plugin(
     description="Add two numbers",
-    a={"ui_element": "number", "min": 0, "max": 100},
+    # a={"ui_element": "number"}, not absolutely necessary since a is defined as an int
     b={"ui_element": "number", "min": 0, "max": 100}
 )
 def add(a: int, b: int) -> int:
