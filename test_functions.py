@@ -7,7 +7,10 @@ def greet(name):
 
 
 # 2. Function with default argument
-@plugin()
+@plugin(
+    description="power function",
+    exponent={"ui_element": "number", "min": 0, "max": 100}
+)
 def power(base: float, exponent: float = 2):
     return base ** exponent
 
