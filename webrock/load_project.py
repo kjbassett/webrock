@@ -28,7 +28,7 @@ def load_plugin_metadata(func):
         "name": func.__name__,
         "doc": func.__doc__,
         "args": [],
-        "return_type": str(signature.return_annotation.__name__),
+        "return_type": str(signature.return_annotation.__name__) if signature.return_annotation else None,
     }
 
     metadata.update(func.decorator_metadata)
