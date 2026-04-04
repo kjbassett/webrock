@@ -26,6 +26,7 @@
 {% macro render_number(plugin_id, arg) %}
     <input class="form-control" type="number" id="{{ plugin_id + '.' + arg.name }}" name="{{ arg.name }}" placeholder="{{ arg.name }}"
         value="{{ arg.default if arg.default is not none else '' }}"
+        step="{{ '1' if arg.type == 'int' else 'any'}}"
         {% if arg.get('min') is not none %}min="{{ arg.min }}"{% endif %}
         {% if arg.get('max') is not none %}max="{{ arg.max }}"{% endif %}>
 {% endmacro %}
