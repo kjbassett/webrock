@@ -13,7 +13,7 @@
     {% macro render_plugins(metadata) %}
         {% for key, value in metadata.items() %}
             {% if "is_plugin" in value %}
-                {{ plugin_utils.render_plugin(key, value) }}
+                {{ plugin_utils.render_plugin(key, value, plugins) }}
             {% else %}
                 <div class="category row">
                     <h3>{{ key }}</h3>

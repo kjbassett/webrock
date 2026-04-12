@@ -35,15 +35,21 @@ async def create_app():
 
     async def run_schedules():
         while True:
-            for plugin_id, job_schedules in schedules.items():
+            triggered_this_tick = []  # (plugin_id, schedule_index) pairs that ran
+
+            for plugin_id, job_schedules in list(schedules.items()):
                 if plugin_id not in plugins:
                     continue
                 i = 0
                 while i < len(job_schedules):
                     js = job_schedules[i]
-                    if (
-                        "next_run" not in js["schedule"]
-                    ):  # schedule recently created or resumed
+                    stype = js["schedule"]["type"]
+
+                    if stype == "after":
+                        i += 1
+                        continue
+
+                    if "next_run" not in js["schedule"]:  # schedule recently created or resumed
                         js["schedule"]["next_run"] = calculate_next_run(js["schedule"])
                         save_schedules(schedule_file, schedules)
                     now = time.time()
@@ -58,10 +64,11 @@ async def create_app():
                     args = js.get("args", {})
                     plugin = plugins[plugin_id]
                     await run_job(plugin, args)
+                    triggered_this_tick.append((plugin_id, i))
                     print(f"Scheduled start of {plugin_id}")
 
                     # delete job if it's a one time run
-                    if js["schedule"]["type"] == "once":
+                    if stype == "once":
                         del job_schedules[i]
                     # otherwise calculate next run
                     else:
@@ -69,6 +76,24 @@ async def create_app():
                         js["schedule"]["next_run"] = calculate_next_run(js["schedule"])
                         i += 1
                     save_schedules(schedule_file, schedules)
+
+            # Trigger "after" schedules whose trigger ran this tick
+            if triggered_this_tick:
+                for plugin_id, job_schedules in list(schedules.items()):
+                    if plugin_id not in plugins:
+                        continue
+                    for js in job_schedules:
+                        if js["schedule"]["type"] != "after":
+                            continue
+                        trig_plugin = js["schedule"]["trigger_plugin"]
+                        trig_idx = js["schedule"]["trigger_schedule_index"]
+                        if (trig_plugin, trig_idx) in triggered_this_tick:
+                            args = js.get("args", {})
+                            plugin = plugins[plugin_id]
+                            await run_job(plugin, args)
+                            print(f"After-triggered start of {plugin_id}")
+                save_schedules(schedule_file, schedules)
+
             await asyncio.sleep(1)
 
     async def run_job(plugin, args):

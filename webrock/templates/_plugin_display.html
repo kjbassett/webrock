@@ -1,6 +1,6 @@
 {% import '_form_macros.html' as forms %}
 
-{% macro render_plugin(plugin_name, plugin) %}
+{% macro render_plugin(plugin_name, plugin, all_plugins=[]) %}
     <div class="plugin col-md-6">
         <h4>{{ plugin_name }}</h4>
         <form id="plugin-form-{{ plugin.id }}" action="/schedule_job/{{plugin.id}}" method="post">
@@ -59,6 +59,7 @@
                 <option value="once">One-Time</option>
                 <option value="interval">Every X Seconds</option>
                 <option value="cron">Specific Time</option>
+                <option value="after">After Another Job</option>
             </select>
 
             <!-- ONCE -->
@@ -78,6 +79,18 @@
                     "min": 1,
                     "max": 86400
                 }) }}
+            </div>
+
+            <!-- AFTER -->
+            <div id="schedule-after-wrap-{{ plugin.id }}" class="my-2" style="display:none;">
+                <label class="form-label">Run After Plugin</label>
+                <select class="form-select" name="_trigger_plugin">
+                    {% for pid in all_plugins %}
+                        <option value="{{ pid }}">{{ pid }}</option>
+                    {% endfor %}
+                </select>
+                <label class="form-label mt-2">Schedule Index (0-based)</label>
+                <input class="form-control" type="number" name="_trigger_schedule_index" min="0" value="0">
             </div>
 
             <!-- CRON -->

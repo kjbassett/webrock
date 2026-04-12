@@ -1,2 +1,2 @@
-sanic
+sanic<25.12
 sanic_jinja2

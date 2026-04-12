@@ -40,7 +40,8 @@ function updateScheduleFields(pluginId) {
     const sections = {
         interval: `schedule-interval-wrap-${pluginId}`,
         cron: `schedule-cron-wrap-${pluginId}`,
-        once: `schedule-once-wrap-${pluginId}`
+        once: `schedule-once-wrap-${pluginId}`,
+        after: `schedule-after-wrap-${pluginId}`
     };
 
     for (const [key, id] of Object.entries(sections)) {
@@ -50,41 +51,18 @@ function updateScheduleFields(pluginId) {
 }
 
 function formatJob(job) {
-    if (job.type === "interval") return `Every ${job.interval_seconds}s`;
-    if (job.type === "cron") return `At ${job.time}`;
-    if (job.type === "weekly")
-        return `Weekly: ${["Mon","Tue","Wed","Thu","Fri","Sat","Sun"][job.weekday]} @ ${job.time}`;
-    if (job.type === "once") return `Once @ ${job.when}`;
+    const s = job.schedule;
+    if (s.type === "interval") return `Every ${s.seconds}s`;
+    if (s.type === "cron") return `Cron: ${s.minutes}m ${s.hours}h`;
+    if (s.type === "once") return `Once @ ${s.timestamp === "now" ? "now" : new Date(s.timestamp).toLocaleString()}`;
+    if (s.type === "after") return `After ${s.trigger_plugin}[${s.trigger_schedule_index}]`;
     return "Unknown";
 }
 
 function computeNextRun(job) {
-    // Not perfect, but good for visual feedback.
-    const now = new Date();
-
-    if (job.type === "interval") {
-        return new Date(now.getTime() + job.interval_seconds * 1000);
-    }
-    if (job.type === "cron") {
-        const [h, m] = job.time.split(":").map(Number);
-        const next = new Date();
-        next.setHours(h, m, 0, 0);
-        if (next < now) next.setDate(next.getDate() + 1);
-        return next;
-    }
-    if (job.type === "weekly") {
-        const targetDay = job.weekday;
-        const next = new Date();
-        const dayDiff = (targetDay - now.getDay() + 7) % 7;
-        next.setDate(now.getDate() + dayDiff);
-        const [h, m] = job.time.split(":").map(Number);
-        next.setHours(h, m, 0, 0);
-        if (next < now) next.setDate(next.getDate() + 7);
-        return next;
-    }
-    if (job.type === "once") {
-        return new Date(job.when);
-    }
+    const s = job.schedule;
+    if (s.type === "after") return null;
+    if (s.next_run) return new Date(s.next_run * 1000);
     return null;
 }
 

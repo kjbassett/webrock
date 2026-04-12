@@ -18,7 +18,7 @@ def form_to_job_schedule(meta, form):
 
     # get schedule
     schedule_type = get_value("_schedule_type")
-    if schedule_type not in ("once", "interval", "cron"):
+    if schedule_type not in ("once", "interval", "cron", "after"):
         raise ValueError("Invalid schedule type")
 
     schedule = {"type": schedule_type}
@@ -31,6 +31,14 @@ def form_to_job_schedule(meta, form):
             except ValueError:
                 raise ValueError(f"Invalid timestamp: {ts}")
         schedule['timestamp'] = ts
+
+    elif schedule_type == "after":
+        schedule["trigger_plugin"] = get_value("_trigger_plugin")
+        trigger_index_raw = get_value("_trigger_schedule_index")
+        try:
+            schedule["trigger_schedule_index"] = int(trigger_index_raw)
+        except (ValueError, TypeError):
+            raise ValueError("trigger_schedule_index must be an integer")
 
     elif schedule_type == "interval":
         seconds_raw = get_value("_seconds")
@@ -164,6 +172,10 @@ def calculate_next_run(schedule):
 
 
     stype = schedule["type"]
+
+    # --- AFTER (event-driven, no time-based next_run) ---
+    if stype == "after":
+        return None
 
     # --- ONCE ---
     if stype == "once":
