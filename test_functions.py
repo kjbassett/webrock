@@ -2,7 +2,7 @@ from webrock.decorator import plugin
 
 # 1. Simple function
 @plugin()
-def greet(name):
+def greet(name: str):
     return f"Hello, {name}!"
 
 
@@ -31,7 +31,7 @@ def average(numbers: list):
 
 # 5. Function returning multiple values
 @plugin()
-def min_max(values):
+def min_max(values: list):
     return min(values), max(values)
 
 
@@ -43,7 +43,7 @@ def add_all(*nums):
 
 # 7. Function with keyword arguments
 @plugin()
-def build_url(base, **params):
+def build_url(base: str, **params):
     query = "&".join(f"{k}={v}" for k, v in params.items())
     return f"{base}?{query}" if query else base
 
