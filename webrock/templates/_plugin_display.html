@@ -1,6 +1,6 @@
 {% import '_form_macros.html' as forms %}
 
-{% macro render_plugin(plugin_name, plugin, all_plugins=[]) %}
+{% macro render_plugin(plugin_name, plugin, all_plugins=[], all_schedules=[]) %}
     <div class="plugin col-md-6">
         <h4>{{ plugin_name }}</h4>
         <form id="plugin-form-{{ plugin.id }}" action="/schedule_job/{{plugin.id}}" method="post">
@@ -83,14 +83,14 @@
 
             <!-- AFTER -->
             <div id="schedule-after-wrap-{{ plugin.id }}" class="my-2" style="display:none;">
-                <label class="form-label">Run After Plugin</label>
-                <select class="form-select" name="_trigger_plugin">
-                    {% for pid in all_plugins %}
-                        <option value="{{ pid }}">{{ pid }}</option>
+                <label class="form-label">Run After Schedule</label>
+                <select class="form-select" name="_trigger_schedule_id">
+                    {% for sched in all_schedules %}
+                        {% if sched.type != 'after' %}
+                            <option value="{{ sched.id }}">#{{ sched.id }} — {{ sched.plugin_id }} ({{ sched.type }})</option>
+                        {% endif %}
                     {% endfor %}
                 </select>
-                <label class="form-label mt-2">Schedule Index (0-based)</label>
-                <input class="form-control" type="number" name="_trigger_schedule_index" min="0" value="0">
             </div>
 
             <!-- CRON -->
@@ -162,13 +162,33 @@
         <table class="table table-sm table-striped table-bordered my-2 mb-0">
             <thead>
                 <tr>
-                    <th>Job</th>
+                    <th>ID</th>
+                    <th>Type</th>
+                    <th>Args</th>
                     <th>Next Run</th>
+                    <th>Last Run</th>
                     <th></th>
                 </tr>
             </thead>
             <tbody id="schedule-list-{{ plugin.id }}"></tbody>
         </table>
+
+        <details class="my-2">
+            <summary>Run History</summary>
+            <table class="table table-sm table-striped table-bordered">
+                <thead>
+                    <tr>
+                        <th>Run ID</th>
+                        <th>Schedule ID</th>
+                        <th>Started</th>
+                        <th>Finished</th>
+                        <th>Status</th>
+                        <th>Result / Error</th>
+                    </tr>
+                </thead>
+                <tbody id="run-history-{{ plugin.id }}"></tbody>
+            </table>
+        </details>
 
     </div>
 {% endmacro %}

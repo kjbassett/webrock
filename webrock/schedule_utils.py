@@ -3,8 +3,10 @@ import json
 from datetime import datetime, timedelta
 
 
-def form_to_job_schedule(meta, form):
-    job_schedule = {"schedule": {}, "args": {}}
+def form_to_schedule_parts(meta, form):
+    """Parse a schedule form POST into (stype, args_dict, config_dict)."""
+    job_args = {}
+    config = {}
 
     def get_value(key, default=None):
         if key not in form or not form[key]:
@@ -16,12 +18,10 @@ def form_to_job_schedule(meta, form):
             v = v.split(",")
         return v
 
-    # get schedule
+    # get schedule type
     schedule_type = get_value("_schedule_type")
     if schedule_type not in ("once", "interval", "cron", "after"):
         raise ValueError("Invalid schedule type")
-
-    schedule = {"type": schedule_type}
 
     if schedule_type == "once":
         ts = get_value("_timestamp", "now")
@@ -30,40 +30,33 @@ def form_to_job_schedule(meta, form):
                 datetime.fromisoformat(ts)
             except ValueError:
                 raise ValueError(f"Invalid timestamp: {ts}")
-        schedule['timestamp'] = ts
+        config["timestamp"] = ts
 
     elif schedule_type == "after":
-        schedule["trigger_plugin"] = get_value("_trigger_plugin")
-        trigger_index_raw = get_value("_trigger_schedule_index")
+        trigger_id_raw = get_value("_trigger_schedule_id")
         try:
-            schedule["trigger_schedule_index"] = int(trigger_index_raw)
+            config["trigger_id"] = int(trigger_id_raw)
         except (ValueError, TypeError):
-            raise ValueError("trigger_schedule_index must be an integer")
+            raise ValueError("_trigger_schedule_id must be an integer")
 
     elif schedule_type == "interval":
         seconds_raw = get_value("_seconds")
-        if seconds_raw is None:
-            raise ValueError("interval in seconds is required for interval schedules")
-
         try:
-            schedule["seconds"] = int(seconds_raw)
+            config["seconds"] = int(seconds_raw)
         except ValueError:
             raise ValueError("interval must be an integer")
 
     elif schedule_type == "cron":
-        schedule["minutes"] = get_value("_minutes", "*")
-        schedule["hours"] = get_value("_hours", "*")
-        schedule["days_of_week"] = get_value("_days_of_week", "*")
-        schedule["days_of_month"] = get_value("_days_of_month", "*")
-        schedule["months"] = get_value("_months", "*")
-
-    job_schedule["schedule"] = schedule
+        config["minutes"] = get_value("_minutes", "*")
+        config["hours"] = get_value("_hours", "*")
+        config["days_of_week"] = get_value("_days_of_week", "*")
+        config["days_of_month"] = get_value("_days_of_month", "*")
+        config["months"] = get_value("_months", "*")
 
     # get function args
     for arg in meta["args"]:
         name = arg["name"]
 
-        # Missing value
         if name not in form:
             if "default" not in arg:
                 raise ValueError(f"Missing required argument {name}")
@@ -72,16 +65,13 @@ def form_to_job_schedule(meta, form):
 
         value = get_value(name, arg.get("default"))
 
-        # Convert type
         _type = arg["type"]
 
         if _type == "bool":
-            # Works for both scheduler & Sanic
             if isinstance(value, str):
                 value = value.lower() in ("true", "on")
             else:
                 value = bool(value)
-
         elif _type != "any":
             try:
                 builtin_type = __builtins__[_type]
@@ -91,9 +81,18 @@ def form_to_job_schedule(meta, form):
                     f"Invalid type for {name}: '{_type}' not found in __builtins__."
                 )
 
-        job_schedule["args"][name] = value
+        job_args[name] = value
 
-    return job_schedule
+    return schedule_type, job_args, config
+
+
+def calculate_next_run_from_row(row: dict) -> float | None:
+    """Convert a DB schedule row to the flat dict format and call calculate_next_run."""
+    config = row["config"] if isinstance(row["config"], dict) else json.loads(row["config"])
+    flat = {"type": row["type"], **config}
+    if row.get("last_run") is not None:
+        flat["last_run"] = row["last_run"]
+    return calculate_next_run(flat)
 
 
 MONTH_LOOKUP = {name.lower(): i for i, name in enumerate(calendar.month_name) if name}
@@ -166,11 +165,9 @@ def matches(value, allowed):
 
 def calculate_next_run(schedule):
     """
-    Given a schedule dict from your form_to_job_schedule output,
-    return the next UTC datetime the job should run.
+    Given a schedule dict, return the next UTC timestamp the job should run.
+    Accepts the flat dict format: {"type": ..., "seconds": ..., "last_run": ..., ...}
     """
-
-
     stype = schedule["type"]
 
     # --- AFTER (event-driven, no time-based next_run) ---
@@ -193,18 +190,15 @@ def calculate_next_run(schedule):
         return last_run + seconds
 
     # --- CRON ---
-    # Parse all cron fields
     minutes = parse_cron_field(schedule["minutes"])
     hours = parse_cron_field(schedule["hours"])
     dom = parse_cron_field(schedule["days_of_month"])
     dow = parse_cron_field(schedule["days_of_week"])
     months = parse_month_field(schedule["months"])
 
-    # Start checking from last_run + 1min
     t = datetime.fromtimestamp(last_run) + timedelta(minutes=1)
     t = t.replace(second=0, microsecond=0)
 
-    # Hard stop: safety valve (5 years is generous)
     end = t + timedelta(days=365 * 5)
 
     while t < end:
@@ -213,7 +207,7 @@ def calculate_next_run(schedule):
             and matches(t.hour, hours)
             and matches(t.month, months)
             and matches(t.day, dom)
-            and matches(t.weekday(), dow)  # Python weekday: Mon=0...Sun=6
+            and matches(t.weekday(), dow)
         ):
             return int(t.timestamp())
 
@@ -222,20 +216,3 @@ def calculate_next_run(schedule):
     raise RuntimeError(
         f"No next runtime found within 5 years. Cron may be impossible.\n{schedule}"
     )
-
-
-def load_schedules(schedule_file):
-    if schedule_file.exists():
-        schedule = json.loads(schedule_file.read_text())
-
-        # clear next_run times if already missed
-        for plugin in schedule.keys():
-            for sched in schedule[plugin]:
-                if "next_run" in sched['schedule'] and sched['schedule']['next_run'] < datetime.now().timestamp():
-                    del sched['schedule']["next_run"]
-        return schedule
-    return {}
-
-
-def save_schedules(schedule_file, schedules):
-    schedule_file.write_text(json.dumps(schedules, indent=2))
