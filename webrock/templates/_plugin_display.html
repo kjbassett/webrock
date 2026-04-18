@@ -167,35 +167,39 @@
                             </div>
                         </form>
 
-                        <table class="table table-sm table-striped table-bordered my-2 mb-0">
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Type</th>
-                                    <th>Args</th>
-                                    <th>Next Run</th>
-                                    <th>Last Run</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody id="schedule-list-{{ plugin.id }}"></tbody>
-                        </table>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-striped table-bordered my-2 mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Type</th>
+                                        <th>Args</th>
+                                        <th>Next Run</th>
+                                        <th>Last Run</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="schedule-list-{{ plugin.id }}"></tbody>
+                            </table>
+                        </div>
 
                         <details class="my-2">
                             <summary>Run History</summary>
-                            <table class="table table-sm table-striped table-bordered">
-                                <thead>
-                                    <tr>
-                                        <th>Run ID</th>
-                                        <th>Schedule ID</th>
-                                        <th>Started</th>
-                                        <th>Finished</th>
-                                        <th>Status</th>
-                                        <th>Result / Error</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="run-history-{{ plugin.id }}"></tbody>
-                            </table>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-striped table-bordered">
+                                    <thead>
+                                        <tr>
+                                            <th>Run ID</th>
+                                            <th>Schedule ID</th>
+                                            <th>Started</th>
+                                            <th>Finished</th>
+                                            <th>Status</th>
+                                            <th>Result / Error</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="run-history-{{ plugin.id }}"></tbody>
+                                </table>
+                            </div>
                         </details>
                     </div>
                 </div>
