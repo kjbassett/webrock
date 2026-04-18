@@ -28,6 +28,9 @@ async def create_app():
 
     metadata, plugins, shutdown_funcs = await load_project()
 
+    app.ctx.plugins = plugins
+    app.ctx.metadata = metadata
+
     db.init_db("webrock.db")
 
     async def run_schedules():
@@ -132,7 +135,7 @@ async def create_app():
             meta = meta[layer]
 
         stype, args_dict, config_dict = form_to_schedule_parts(meta, request.form)
-        new_id = db.insert_schedule(plugin_id, stype, args_dict, config_dict)
+        new_id = db.insert_schedule(plugin_id, stype, args_dict, config_dict, source="web")
         return response.json({"status": "added", "plugin": plugin_id, "id": new_id})
 
     @app.route("/stop/<plugin_id>")
@@ -178,8 +181,20 @@ async def create_app():
                 "config": row["config"],
                 "next_run": db.format_ts(row["next_run"]),
                 "last_run": db.format_ts(row["last_run"]),
+                "source": row["source"],
             })
         return response.json(result)
+
+    @app.route("/edit_schedule/<schedule_id:int>", methods=["POST"])
+    async def edit_schedule(request, schedule_id):
+        body = request.json or {}
+        stype = body.get("type")
+        args_dict = body.get("args", {})
+        config_dict = body.get("config", {})
+        if not stype:
+            return response.json({"error": "missing type"}, status=400)
+        db.update_schedule(schedule_id, stype, args_dict, config_dict)
+        return response.json({"status": "updated", "id": schedule_id})
 
     @app.route("/remove_schedule/<plugin_id>", methods=["POST"])
     async def remove_schedule(request, plugin_id):

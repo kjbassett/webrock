@@ -11,8 +11,9 @@ requires-python = ">=3.6"
 
 # Dependencies
 dependencies = [
-    "sanic",
+    "sanic<25.12",
     "sanic_jinja2",
+    "mcp",
 ]
 
 # Optional: If you have additional URLs like documentation or source code
@@ -22,6 +23,7 @@ repository = "https://github.com/kjbassett/webrock"
 # Entry points for command-line scripts
 [project.scripts]
 rock = "webrock.run:main"
+rock-mcp = "webrock.mcp_server:main_stdio_entry"
 
 # Include package data
 [tool.setuptools]

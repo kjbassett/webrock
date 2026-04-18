@@ -21,7 +21,8 @@ def init_db(db_path: str) -> sqlite3.Connection:
             next_run    REAL,
             last_run    REAL,
             created_at  REAL NOT NULL,
-            deleted_at  REAL
+            deleted_at  REAL,
+            source      TEXT NOT NULL DEFAULT 'web'
         );
 
         CREATE TABLE IF NOT EXISTS runs (
@@ -36,6 +37,12 @@ def init_db(db_path: str) -> sqlite3.Connection:
             error        TEXT
         );
     """)
+    # Migrate existing DBs that predate the source column
+    try:
+        _conn.execute("ALTER TABLE schedules ADD COLUMN source TEXT NOT NULL DEFAULT 'web'")
+        _conn.commit()
+    except sqlite3.OperationalError:
+        pass  # column already exists
     _conn.commit()
     return _conn
 
@@ -48,13 +55,25 @@ def get_conn() -> sqlite3.Connection:
 
 # --- Schedules ---
 
-def insert_schedule(plugin_id: str, stype: str, args_dict: dict, config_dict: dict) -> int:
+def insert_schedule(plugin_id: str, stype: str, args_dict: dict, config_dict: dict, source: str = "web") -> int:
     cur = get_conn().execute(
-        "INSERT INTO schedules (plugin_id, type, args, config, created_at) VALUES (?, ?, ?, ?, ?)",
-        (plugin_id, stype, json.dumps(args_dict), json.dumps(config_dict), time.time()),
+        "INSERT INTO schedules (plugin_id, type, args, config, created_at, source) VALUES (?, ?, ?, ?, ?, ?)",
+        (plugin_id, stype, json.dumps(args_dict), json.dumps(config_dict), time.time(), source),
     )
     get_conn().commit()
     return cur.lastrowid
+
+
+def update_schedule(schedule_id: int, stype: str, args_dict: dict, config_dict: dict):
+    """Update type/args/config on an existing schedule and recompute next_run."""
+    from .schedule_utils import calculate_next_run
+    flat = {"type": stype, **config_dict}
+    next_run = calculate_next_run(flat)  # None for "after" type
+    get_conn().execute(
+        "UPDATE schedules SET type=?, args=?, config=?, next_run=? WHERE id=?",
+        (stype, json.dumps(args_dict), json.dumps(config_dict), next_run, schedule_id),
+    )
+    get_conn().commit()
 
 
 def get_active_schedules() -> list[dict]:
