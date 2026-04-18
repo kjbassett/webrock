@@ -11,193 +11,192 @@
                 </h4>
                 <div id="collapse-{{ plugin.id }}" class="accordion-collapse collapse" aria-labelledby="heading-{{ plugin.id }}" data-bs-parent="#accordion-{{ plugin.id }}">
                     <div class="accordion-body">
-        <form id="plugin-form-{{ plugin.id }}" action="/schedule_job/{{plugin.id}}" method="post">
-            {% for arg in plugin.args %}
-                <label class="form-label" for="{{ plugin.id + '.' + arg.name }}">{{ arg.name }}</label>
-                {% if arg['ui_element'] == 'textbox' %}
-                    {{ forms.render_textbox(plugin.id, arg) }}
-                {% elif arg['ui_element'] == 'slider' %}
-                    {{ forms.render_slider(plugin.id, arg) }}
-                {% elif arg['ui_element'] == 'checkbox' %}
-                    {{ forms.render_checkbox(plugin.id, arg) }}
-                {% elif arg['ui_element'] == 'color' %}
-                    {{ forms.render_color(plugin.id, arg) }}
-                {% elif arg['ui_element'] == 'date' %}
-                    {{ forms.render_date(plugin.id, arg) }}
-                {% elif arg['ui_element'] == 'datetime_local' %}
-                    {{ forms.render_datetime_local(plugin.id, arg) }}
-                {% elif arg['ui_element'] == 'email' %}
-                    {{ forms.render_email(plugin.id, arg) }}
-                {% elif arg['ui_element'] == 'file' %}
-                    {{ forms.render_file(plugin.id, arg) }}
-                {% elif arg['ui_element'] == 'month' %}
-                    {{ forms.render_month(plugin.id, arg) }}
-                {% elif arg['ui_element'] == 'password' %}
-                    {{ forms.render_password(plugin.id, arg) }}
-                {% elif arg['ui_element'] == 'tel' %}
-                    {{ forms.render_tel(plugin.id, arg) }}
-                {% elif arg['ui_element'] == 'time' %}
-                    {{ forms.render_time(plugin.id, arg) }}
-                {% elif arg['ui_element'] == 'url' %}
-                    {{ forms.render_url(plugin.id, arg) }}
-                {% elif arg['ui_element'] == 'week' %}
-                    {{ forms.render_week(plugin.id, arg) }}
-                {% elif arg['type'] == 'str' %}
-                    {{ forms.render_textbox(plugin.id, arg) }}
-                {% elif arg['type'] == 'int' %}
-                    {{ forms.render_number(plugin.id, arg) }}
-                {% elif arg['type'] == 'float' %}
-                    {{ forms.render_number(plugin.id, arg) }}
-                <!--{% elif arg['type'] == 'complex' %}
-                    {{ forms.render_number(plugin.id, arg) }}-->
-                {% elif arg['type'] == 'bool' %}
-                    {{ forms.render_checkbox(plugin.id, arg) }}
-                {% else %}
-                    {{ forms.render_textbox(plugin.id, arg) }}
-                {% endif %}
-                <!-- Add other UI elements as needed -->
-            {% endfor %}
-            <div class="tooltip">
-                <span class="tooltiptext">{{ plugin.doc }}</span>
-            </div>
-            <h5>Schedule</h5>
-            <!-- Schedule Type -->
-            <label class="form-label" for="schedule-type-{{ plugin.id }}">Schedule Type</label>
-            <select class="form-select" id="schedule-type-{{ plugin.id }}" name="_schedule_type" onchange="updateScheduleFields('{{ plugin.id }}')">
-                <option value="once">One-Time</option>
-                <option value="interval">Every X Seconds</option>
-                <option value="cron">Specific Time</option>
-                <option value="after">After Another Job</option>
-            </select>
+                        <form id="plugin-form-{{ plugin.id }}" action="/schedule_job/{{plugin.id}}" method="post">
+                            {% for arg in plugin.args %}
+                                <label class="form-label" for="{{ plugin.id + '.' + arg.name }}">{{ arg.name }}</label>
+                                {% if arg['ui_element'] == 'textbox' %}
+                                    {{ forms.render_textbox(plugin.id, arg) }}
+                                {% elif arg['ui_element'] == 'slider' %}
+                                    {{ forms.render_slider(plugin.id, arg) }}
+                                {% elif arg['ui_element'] == 'checkbox' %}
+                                    {{ forms.render_checkbox(plugin.id, arg) }}
+                                {% elif arg['ui_element'] == 'color' %}
+                                    {{ forms.render_color(plugin.id, arg) }}
+                                {% elif arg['ui_element'] == 'date' %}
+                                    {{ forms.render_date(plugin.id, arg) }}
+                                {% elif arg['ui_element'] == 'datetime_local' %}
+                                    {{ forms.render_datetime_local(plugin.id, arg) }}
+                                {% elif arg['ui_element'] == 'email' %}
+                                    {{ forms.render_email(plugin.id, arg) }}
+                                {% elif arg['ui_element'] == 'file' %}
+                                    {{ forms.render_file(plugin.id, arg) }}
+                                {% elif arg['ui_element'] == 'month' %}
+                                    {{ forms.render_month(plugin.id, arg) }}
+                                {% elif arg['ui_element'] == 'password' %}
+                                    {{ forms.render_password(plugin.id, arg) }}
+                                {% elif arg['ui_element'] == 'tel' %}
+                                    {{ forms.render_tel(plugin.id, arg) }}
+                                {% elif arg['ui_element'] == 'time' %}
+                                    {{ forms.render_time(plugin.id, arg) }}
+                                {% elif arg['ui_element'] == 'url' %}
+                                    {{ forms.render_url(plugin.id, arg) }}
+                                {% elif arg['ui_element'] == 'week' %}
+                                    {{ forms.render_week(plugin.id, arg) }}
+                                {% elif arg['type'] == 'str' %}
+                                    {{ forms.render_textbox(plugin.id, arg) }}
+                                {% elif arg['type'] == 'int' %}
+                                    {{ forms.render_number(plugin.id, arg) }}
+                                {% elif arg['type'] == 'float' %}
+                                    {{ forms.render_number(plugin.id, arg) }}
+                                <!--{% elif arg['type'] == 'complex' %}
+                                    {{ forms.render_number(plugin.id, arg) }}-->
+                                {% elif arg['type'] == 'bool' %}
+                                    {{ forms.render_checkbox(plugin.id, arg) }}
+                                {% else %}
+                                    {{ forms.render_textbox(plugin.id, arg) }}
+                                {% endif %}
+                                <!-- Add other UI elements as needed -->
+                            {% endfor %}
+                            <div class="tooltip">
+                                <span class="tooltiptext">{{ plugin.doc }}</span>
+                            </div>
+                            <h5>Schedule</h5>
+                            <!-- Schedule Type -->
+                            <label class="form-label" for="schedule-type-{{ plugin.id }}">Schedule Type</label>
+                            <select class="form-select" id="schedule-type-{{ plugin.id }}" name="_schedule_type" onchange="updateScheduleFields('{{ plugin.id }}')">
+                                <option value="once">One-Time</option>
+                                <option value="interval">Every X Seconds</option>
+                                <option value="cron">Specific Time</option>
+                                <option value="after">After Another Job</option>
+                            </select>
 
-            <!-- ONCE -->
-            <div id="schedule-once-wrap-{{ plugin.id }}" class="my-2">
-                <label class="form-label">Run At</label>
-                {{ forms.render_datetime_local(plugin.id, {
-                    "name": "_timestamp"
-                }) }}
-            </div>
+                            <!-- ONCE -->
+                            <div id="schedule-once-wrap-{{ plugin.id }}" class="my-2">
+                                <label class="form-label">Run At</label>
+                                {{ forms.render_datetime_local(plugin.id, {
+                                    "name": "_timestamp"
+                                }) }}
+                            </div>
 
-            <!-- INTERVAL -->
-            <div id="schedule-interval-wrap-{{ plugin.id }}" class="my-2" style="display:none;">
-                <label class="form-label">Interval Seconds</label>
-                {{ forms.render_number(plugin.id, {
-                    "name": "_seconds",
-                    "default": 60,
-                    "min": 1,
-                    "max": 86400
-                }) }}
-            </div>
+                            <!-- INTERVAL -->
+                            <div id="schedule-interval-wrap-{{ plugin.id }}" class="my-2" style="display:none;">
+                                <label class="form-label">Interval Seconds</label>
+                                {{ forms.render_number(plugin.id, {
+                                    "name": "_seconds",
+                                    "default": 60,
+                                    "min": 1,
+                                    "max": 86400
+                                }) }}
+                            </div>
 
-            <!-- AFTER -->
-            <div id="schedule-after-wrap-{{ plugin.id }}" class="my-2" style="display:none;">
-                <label class="form-label">Run After Schedule</label>
-                <select class="form-select" name="_trigger_schedule_id">
-                    {% for sched in all_schedules %}
-                        {% if sched.type != 'after' %}
-                            <option value="{{ sched.id }}">#{{ sched.id }} — {{ sched.plugin_id }} ({{ sched.type }})</option>
-                        {% endif %}
-                    {% endfor %}
-                </select>
-            </div>
+                            <!-- AFTER -->
+                            <div id="schedule-after-wrap-{{ plugin.id }}" class="my-2" style="display:none;">
+                                <label class="form-label">Run After Schedule</label>
+                                <select class="form-select" name="_trigger_schedule_id">
+                                    {% for sched in all_schedules %}
+                                        {% if sched.type != 'after' %}
+                                            <option value="{{ sched.id }}">#{{ sched.id }} — {{ sched.plugin_id }} ({{ sched.type }})</option>
+                                        {% endif %}
+                                    {% endfor %}
+                                </select>
+                            </div>
 
-            <!-- CRON -->
-            <div id="schedule-cron-wrap-{{ plugin.id }}" class="my-2" style="display:none;">
-                <label class="form-label">CRON Schedule</label>
+                            <!-- CRON -->
+                            <div id="schedule-cron-wrap-{{ plugin.id }}" class="my-2" style="display:none;">
+                                <label class="form-label">CRON Schedule</label>
 
-                <div class="row g-2">
+                                <div class="row g-2">
 
-                    <!-- Minutes -->
-                    <div class="col">
-                        <label class="form-label">Minute (0-59)</label>
-                        {{ forms.render_textbox(plugin.id, {
-                            "name": "_minutes",
-                            "default": "*",
-                            "placeholder": "*, 0, 0-5, 10,20, */5"
-                        }) }}
-                    </div>
+                                    <!-- Minutes -->
+                                    <div class="col">
+                                        <label class="form-label">Minute (0-59)</label>
+                                        {{ forms.render_textbox(plugin.id, {
+                                            "name": "_minutes",
+                                            "default": "*",
+                                            "placeholder": "*, 0, 0-5, 10,20, */5"
+                                        }) }}
+                                    </div>
 
-                    <!-- Hours -->
-                    <div class="col">
-                        <label class="form-label">Hour (0-23)</label>
-                        {{ forms.render_textbox(plugin.id, {
-                            "name": "_hours",
-                            "default": "*",
-                            "placeholder": "*, 3, 0-6, 9,15, */2"
-                        }) }}
-                    </div>
-                </div>
+                                    <!-- Hours -->
+                                    <div class="col">
+                                        <label class="form-label">Hour (0-23)</label>
+                                        {{ forms.render_textbox(plugin.id, {
+                                            "name": "_hours",
+                                            "default": "*",
+                                            "placeholder": "*, 3, 0-6, 9,15, */2"
+                                        }) }}
+                                    </div>
+                                </div>
 
-                <!-- Day of Week -->
-                <div class="mt-2">
-                    <label class="form-label">Day of Week (0-6, Sun-Sat, or lists)</label>
-                    {{ forms.render_textbox(plugin.id, {
-                        "name": "_days_of_week",
-                        "default": "*",
-                        "placeholder": "*, mon, fri-sun, 0,1,2"
-                    }) }}
-                </div>
+                                <!-- Day of Week -->
+                                <div class="mt-2">
+                                    <label class="form-label">Day of Week (0-6, Sun-Sat, or lists)</label>
+                                    {{ forms.render_textbox(plugin.id, {
+                                        "name": "_days_of_week",
+                                        "default": "*",
+                                        "placeholder": "*, mon, fri-sun, 0,1,2"
+                                    }) }}
+                                </div>
 
-                <div class="row g-2 mt-2">
-                    <!-- Day of Month -->
-                    <div class="col">
-                        <label class="form-label">Day of Month (1-31)</label>
-                        {{ forms.render_textbox(plugin.id, {
-                            "name": "_days_of_month",
-                            "default": "*",
-                            "placeholder": "*, 1, 1-5, 10,15"
-                        }) }}
-                    </div>
+                                <div class="row g-2 mt-2">
+                                    <!-- Day of Month -->
+                                    <div class="col">
+                                        <label class="form-label">Day of Month (1-31)</label>
+                                        {{ forms.render_textbox(plugin.id, {
+                                            "name": "_days_of_month",
+                                            "default": "*",
+                                            "placeholder": "*, 1, 1-5, 10,15"
+                                        }) }}
+                                    </div>
 
-                    <!-- Months -->
-                    <div class="col">
-                        <label class="form-label">Month (1-12 or Jan-Dec)</label>
-                        {{ forms.render_textbox(plugin.id, {
-                            "name": "_months",
-                            "default": "*",
-                            "placeholder": "*, jan, feb-mar, 1,3,5"
-                        }) }}
-                    </div>
-                </div>
-            </div>
+                                    <!-- Months -->
+                                    <div class="col">
+                                        <label class="form-label">Month (1-12 or Jan-Dec)</label>
+                                        {{ forms.render_textbox(plugin.id, {
+                                            "name": "_months",
+                                            "default": "*",
+                                            "placeholder": "*, jan, feb-mar, 1,3,5"
+                                        }) }}
+                                    </div>
+                                </div>
+                            </div>
 
-            <div class="my-2">
-                <button class="btn btn-primary" type="submit">Schedule Job</button>
-                <button class="btn btn-danger" type="button" onclick="stop('{{ plugin.id }}')">Stop</button>
-            </div>
-        </form>
+                            <div class="my-2">
+                                <button class="btn btn-primary" type="submit">Schedule Job</button>
+                                <button class="btn btn-danger" type="button" onclick="stop('{{ plugin.id }}')">Stop</button>
+                            </div>
+                        </form>
 
-        <table class="table table-sm table-striped table-bordered my-2 mb-0">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Type</th>
-                    <th>Args</th>
-                    <th>Next Run</th>
-                    <th>Last Run</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody id="schedule-list-{{ plugin.id }}"></tbody>
-        </table>
+                        <table class="table table-sm table-striped table-bordered my-2 mb-0">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Type</th>
+                                    <th>Args</th>
+                                    <th>Next Run</th>
+                                    <th>Last Run</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="schedule-list-{{ plugin.id }}"></tbody>
+                        </table>
 
-        <details class="my-2">
-            <summary>Run History</summary>
-            <table class="table table-sm table-striped table-bordered">
-                <thead>
-                    <tr>
-                        <th>Run ID</th>
-                        <th>Schedule ID</th>
-                        <th>Started</th>
-                        <th>Finished</th>
-                        <th>Status</th>
-                        <th>Result / Error</th>
-                    </tr>
-                </thead>
-                <tbody id="run-history-{{ plugin.id }}"></tbody>
-            </table>
-        </details>
-
+                        <details class="my-2">
+                            <summary>Run History</summary>
+                            <table class="table table-sm table-striped table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th>Run ID</th>
+                                        <th>Schedule ID</th>
+                                        <th>Started</th>
+                                        <th>Finished</th>
+                                        <th>Status</th>
+                                        <th>Result / Error</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="run-history-{{ plugin.id }}"></tbody>
+                            </table>
+                        </details>
                     </div>
                 </div>
             </div>
