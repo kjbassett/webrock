@@ -50,3 +50,84 @@ body {
 .last-run-timestamp {
     color: #ffffff;
 }
+
+/* Floating TOC Button */
+.toc-fab {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 1050;
+    width: 50px;
+    height: 50px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(13, 110, 253, 0.85);
+    color: #fff;
+    font-size: 24px;
+    line-height: 50px;
+    text-align: center;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+}
+.toc-fab:hover {
+    background: rgba(13, 110, 253, 1);
+}
+
+/* TOC Popup */
+.toc-popup {
+    position: fixed;
+    bottom: 84px;
+    right: 24px;
+    z-index: 1050;
+    width: 260px;
+    max-height: 50vh;
+    overflow-y: auto;
+    background: rgba(30, 30, 30, 0.92);
+    backdrop-filter: blur(10px);
+    border-radius: 10px;
+    padding: 12px 0;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+}
+.toc-popup-header {
+    color: #fff;
+    margin: 0 16px 8px;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.7;
+}
+.toc-search {
+    display: block;
+    width: calc(100% - 24px);
+    margin: 0 12px 8px;
+    padding: 6px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    font-size: 13px;
+    outline: none;
+}
+.toc-search::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+}
+.toc-search:focus {
+    border-color: rgba(13, 110, 253, 0.7);
+}
+.toc-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.toc-list li a {
+    display: block;
+    padding: 8px 16px;
+    color: #ddd;
+    text-decoration: none;
+    font-size: 14px;
+}
+.toc-list li a:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+}

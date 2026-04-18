@@ -1,7 +1,7 @@
 {% import '_form_macros.html' as forms %}
 
 {% macro render_plugin(plugin_name, plugin, all_plugins=[], all_schedules=[]) %}
-    <div class="plugin col-md-6">
+    <div class="plugin col-md-6" id="plugin-{{ plugin.id }}" data-plugin-name="{{ plugin.id }}">
         <div class="accordion" id="accordion-{{ plugin.id }}">
             <div class="accordion-item">
                 <h4 class="accordion-header" id="heading-{{ plugin.id }}">

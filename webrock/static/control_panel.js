@@ -114,6 +114,62 @@ function renderRunRow(run) {
 }
 
 window.addEventListener("DOMContentLoaded", async () => {
+    // Build TOC from plugin elements
+    const tocList = document.getElementById("toc-list");
+    const tocPopup = document.getElementById("toc-popup");
+    const tocFab = document.getElementById("toc-fab");
+
+    document.querySelectorAll("[data-plugin-name]").forEach(el => {
+        const name = el.getAttribute("data-plugin-name");
+        const pluginId = el.id.replace("plugin-", "");
+        const li = document.createElement("li");
+        const a = document.createElement("a");
+        a.href = "#";
+        a.textContent = name;
+        a.addEventListener("click", e => {
+            e.preventDefault();
+            // Scroll to plugin
+            el.scrollIntoView({ behavior: "smooth", block: "start" });
+            // Open the accordion
+            const collapseEl = document.getElementById(`collapse-${pluginId}`);
+            if (collapseEl && !collapseEl.classList.contains("show")) {
+                new bootstrap.Collapse(collapseEl, { toggle: true });
+            }
+            // Hide popup
+            tocPopup.style.display = "none";
+        });
+        li.appendChild(a);
+        tocList.appendChild(li);
+    });
+
+    // Filter TOC on search input
+    const tocSearch = document.getElementById("toc-search");
+    tocSearch.addEventListener("input", () => {
+        const query = tocSearch.value.toLowerCase();
+        tocList.querySelectorAll("li").forEach(li => {
+            li.style.display = li.textContent.toLowerCase().includes(query) ? "" : "none";
+        });
+    });
+
+    // Toggle popup on FAB click
+    tocFab.addEventListener("click", e => {
+        e.stopPropagation();
+        const showing = tocPopup.style.display === "none";
+        tocPopup.style.display = showing ? "block" : "none";
+        if (showing) {
+            tocSearch.value = "";
+            tocSearch.dispatchEvent(new Event("input"));
+            tocSearch.focus();
+        }
+    });
+
+    // Close popup when clicking outside
+    document.addEventListener("click", e => {
+        if (!tocPopup.contains(e.target) && e.target !== tocFab) {
+            tocPopup.style.display = "none";
+        }
+    });
+
     // Load schedules
     const res = await fetch("/get_schedules");
     if (!res.ok) return;

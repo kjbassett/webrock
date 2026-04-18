@@ -27,5 +27,13 @@
         {{ render_plugins(metadata) }}
     </div>
 
+    <!-- Floating TOC Button -->
+    <button id="toc-fab" class="toc-fab" title="Table of Contents">&#9776;</button>
+    <div id="toc-popup" class="toc-popup" style="display:none;">
+        <h6 class="toc-popup-header">Plugins</h6>
+        <input id="toc-search" class="toc-search" type="text" placeholder="Search plugins..." autocomplete="off">
+        <ul id="toc-list" class="toc-list"></ul>
+    </div>
+
 </body>
 </html>
