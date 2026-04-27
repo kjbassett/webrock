@@ -1,6 +1,7 @@
 import calendar
 import json
 from datetime import datetime, timedelta
+import sys
 
 
 def form_to_schedule_parts(meta, form):
@@ -169,6 +170,7 @@ def calculate_next_run(schedule):
     Accepts the flat dict format: {"type": ..., "seconds": ..., "last_run": ..., ...}
     """
     stype = schedule["type"]
+    print(stype, file=sys.stderr)
 
     # --- AFTER (event-driven, no time-based next_run) ---
     if stype == "after":

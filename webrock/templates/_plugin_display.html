@@ -11,7 +11,7 @@
                 </h4>
                 <div id="collapse-{{ plugin.id }}" class="accordion-collapse collapse" aria-labelledby="heading-{{ plugin.id }}" data-bs-parent="#accordion-{{ plugin.id }}">
                     <div class="accordion-body">
-                        <form id="plugin-form-{{ plugin.id }}" action="/schedule_job/{{plugin.id}}" method="post">
+                        <form id="plugin-form-{{ plugin.id }}" onsubmit="submitScheduleForm(event, '{{ plugin.id }}')" method="post">
                             {% for arg in plugin.args %}
                                 <label class="form-label" for="{{ plugin.id + '.' + arg.name }}">{{ arg.name }}</label>
                                 {% if arg['ui_element'] == 'textbox' %}

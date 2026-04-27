@@ -1,5 +1,5 @@
 function stop(plugin) {
-    fetch(`/stop/${plugin}`, { method: 'GET' })
+    fetch(`/api/plugins/${plugin}/stop`, { method: 'POST' })
         .then(response => response.json())
         .then(response => {
             console.log(response);
@@ -9,7 +9,7 @@ function stop(plugin) {
 }
 
 function checkStatusAndUpdateLight(plugin) {
-    fetch(`/status/${plugin}`, { method: 'GET' })
+    fetch(`/api/plugins/${plugin}/status`, { method: 'GET' })
         .then(res => res.json())
         .then(res => {
             console.log(res);
@@ -82,11 +82,7 @@ function renderScheduleRow(job, pluginId) {
     removeBtn.className = "btn btn-sm btn-danger";
     removeBtn.textContent = "Remove";
     removeBtn.onclick = async () => {
-        await fetch(`/remove_schedule/${pluginId}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id: job.id })
-        });
+        await fetch(`/api/schedules/${job.id}`, { method: "DELETE" });
         tr.remove();
     };
     btnTd.appendChild(removeBtn);
@@ -111,6 +107,63 @@ function renderRunRow(run) {
         tr.appendChild(td);
     });
     return tr;
+}
+
+async function submitScheduleForm(event, pluginId) {
+    event.preventDefault();
+    const form = event.target;
+    const data = Object.fromEntries(new FormData(form));
+
+    const stype = data["_schedule_type"] || "once";
+
+    // Build schedule config from underscore-prefixed fields
+    let config = {};
+    if (stype === "once") {
+        config = { timestamp: data["_timestamp"] || "now" };
+    } else if (stype === "interval") {
+        config = { seconds: parseInt(data["_seconds"] || "60", 10) };
+    } else if (stype === "after") {
+        config = { trigger_id: parseInt(data["_trigger_schedule_id"], 10) };
+    } else if (stype === "cron") {
+        config = {
+            minutes: data["_minutes"] || "*",
+            hours: data["_hours"] || "*",
+            days_of_week: data["_days_of_week"] || "*",
+            days_of_month: data["_days_of_month"] || "*",
+            months: data["_months"] || "*",
+        };
+    }
+
+    // All other fields are plugin args (no underscore prefix)
+    const args = {};
+    for (const [key, value] of Object.entries(data)) {
+        if (!key.startsWith("_")) {
+            args[key] = value;
+        }
+    }
+
+    const res = await fetch("/api/schedules", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plugin_id: pluginId, type: stype, args, config }),
+    });
+    const result = await res.json();
+    console.log("Scheduled:", result);
+
+    if (res.ok) {
+        const tbody = document.getElementById(`schedule-list-${pluginId}`);
+        if (tbody) {
+            // Refresh schedule list for this plugin
+            const schedulesRes = await fetch(`/api/schedules?plugin_id=${encodeURIComponent(pluginId)}`);
+            if (schedulesRes.ok) {
+                const schedulesByPlugin = await schedulesRes.json();
+                tbody.innerHTML = "";
+                for (const job of (schedulesByPlugin[pluginId] || [])) {
+                    tbody.appendChild(renderScheduleRow(job, pluginId));
+                }
+            }
+        }
+    }
 }
 
 window.addEventListener("DOMContentLoaded", async () => {
@@ -171,7 +224,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     });
 
     // Load schedules
-    const res = await fetch("/get_schedules");
+    const res = await fetch("/api/schedules");
     if (!res.ok) return;
     const schedules = await res.json();
 
@@ -187,7 +240,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     const historyBodies = document.querySelectorAll("[id^='run-history-']");
     for (const tbody of historyBodies) {
         const pluginId = tbody.id.replace("run-history-", "");
-        const runsRes = await fetch(`/get_runs/${pluginId}`);
+        const runsRes = await fetch(`/api/runs/${pluginId}`);
         if (!runsRes.ok) continue;
         const runs = await runsRes.json();
         for (const run of runs) {
