@@ -80,7 +80,7 @@ _SCHEDULE_PROPERTIES: dict[str, dict] = {
     },
     "cron_minutes": {"type": "string", "default": "*", "description": "Cron minute field (0-59, *, ranges, lists)."},
     "cron_hours": {"type": "string", "default": "*", "description": "Cron hour field (0-23, *, ranges, lists)."},
-    "cron_days_of_week": {"type": "string", "default": "*", "description": "Cron day-of-week (0-6 / mon-sun / *, ranges, lists)."},
+    "cron_days_of_week": {"type": "string", "default": "*", "description": "Cron day-of-week (0=Mon…6=Sun, names like mon/friday, ranges, lists)."},
     "cron_days_of_month": {"type": "string", "default": "*", "description": "Cron day-of-month (1-31, *, ranges, lists)."},
     "cron_months": {"type": "string", "default": "*", "description": "Cron month field (1-12 / jan-dec / *, ranges, lists)."},
 }

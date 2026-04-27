@@ -97,40 +97,38 @@ def calculate_next_run_from_row(row: dict) -> float | None:
 
 
 MONTH_LOOKUP = {name.lower(): i for i, name in enumerate(calendar.month_name) if name}
-MONTH_LOOKUP.update(
-    {name.lower(): i for i, name in enumerate(calendar.month_abbr) if name}
-)
+MONTH_LOOKUP.update({name.lower(): i for i, name in enumerate(calendar.month_abbr) if name})
 MONTH_LOOKUP.update({str(n): n for n in range(1, 13)})
+
+# Python weekday(): 0=Mon … 6=Sun
+DOW_LOOKUP = {name.lower(): i for i, name in enumerate(calendar.day_name)}
+DOW_LOOKUP.update({name.lower(): i for i, name in enumerate(calendar.day_abbr)})
+DOW_LOOKUP.update({str(n): n for n in range(7)})
 
 
 def parse_cron_field(raw):
     """
     Convert a string into a sorted set of allowed int values.
-    Accepts '*', '1,2,5-7', etc.
-    Returns None for wildcard.
+    Accepts '*', '1,2,5-7', etc.  Returns None for wildcard.
     """
     raw = raw.strip()
-
     if raw == "*" or raw == "":
-        return None  # wildcard meaning "all"
+        return None
 
     result = set()
-    parts = raw.split(",")
-
-    for part in parts:
+    for part in raw.split(","):
         part = part.strip()
         if "-" in part:
             start, end = part.split("-", 1)
             result.update(range(int(start), int(end) + 1))
         else:
             result.add(int(part))
-
     return sorted(result)
 
 
-def parse_month_field(raw):
+def parse_named_field(raw, lookup: dict):
     """
-    Same as parse_cron_field but supports month names.
+    Like parse_cron_field but also resolves names via `lookup`.
     Returns None for wildcard.
     """
     raw = raw.strip()
@@ -138,24 +136,15 @@ def parse_month_field(raw):
         return None
 
     result = set()
-    parts = raw.split(",")
-
-    for p in parts:
+    for p in raw.split(","):
         p = p.strip().lower()
         if "-" in p:
-            # Range, but may be names
             start, end = p.split("-", 1)
-            start = MONTH_LOOKUP.get(start)
-            end = MONTH_LOOKUP.get(end)
-            result.update(range(start, end + 1))
-            continue
-
-        # Single item: name or int
-        if p in MONTH_LOOKUP:
-            result.add(MONTH_LOOKUP[p])
+            result.update(range(lookup[start], lookup[end] + 1))
+        elif p in lookup:
+            result.add(lookup[p])
         else:
             result.add(int(p))
-
     return sorted(result)
 
 
@@ -195,8 +184,8 @@ def calculate_next_run(schedule):
     minutes = parse_cron_field(schedule["minutes"])
     hours = parse_cron_field(schedule["hours"])
     dom = parse_cron_field(schedule["days_of_month"])
-    dow = parse_cron_field(schedule["days_of_week"])
-    months = parse_month_field(schedule["months"])
+    dow = parse_named_field(schedule["days_of_week"], DOW_LOOKUP)
+    months = parse_named_field(schedule["months"], MONTH_LOOKUP)
 
     t = datetime.fromtimestamp(last_run) + timedelta(minutes=1)
     t = t.replace(second=0, microsecond=0)

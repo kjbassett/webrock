@@ -128,11 +128,11 @@
 
                                 <!-- Day of Week -->
                                 <div class="mt-2">
-                                    <label class="form-label">Day of Week (0-6, Sun-Sat, or lists)</label>
+                                    <label class="form-label">Day of Week (0=Mon … 6=Sun, or names)</label>
                                     {{ forms.render_textbox(plugin.id, {
                                         "name": "_days_of_week",
                                         "default": "*",
-                                        "placeholder": "*, mon, fri-sun, 0,1,2"
+                                        "placeholder": "*, mon, mon-fri, 0,4,6"
                                     }) }}
                                 </div>
 
