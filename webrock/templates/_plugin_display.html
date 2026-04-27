@@ -3,7 +3,7 @@
 {% macro render_plugin(plugin_name, plugin, all_plugins=[], all_schedules=[]) %}
     <div class="plugin col-md-6">
         <h4>{{ plugin_name }}</h4>
-        <form id="plugin-form-{{ plugin.id }}" action="/schedule_job/{{plugin.id}}" method="post">
+        <form id="plugin-form-{{ plugin.id }}" onsubmit="submitScheduleForm(event, '{{ plugin.id }}')" method="post">
             {% for arg in plugin.args %}
                 <label class="form-label" for="{{ plugin.id + '.' + arg.name }}">{{ arg.name }}</label>
                 {% if arg['ui_element'] == 'textbox' %}

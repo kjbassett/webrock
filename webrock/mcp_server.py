@@ -5,30 +5,35 @@ Exposes one scheduling tool per plugin (respecting mcp_disabled=True) plus
 four management tools: list_schedules, edit_schedule, cancel_schedule,
 get_run_history.
 
+All tool calls are forwarded to the webrock REST API — no direct db access.
+
 Transport modes
 ---------------
-SSE  (default when running `rock`):
-    start_background_sse(plugins, metadata, port)  — daemon thread alongside Sanic
+SSE (default when running `rock`):
+    run_sse_blocking(server, port)  — called from after_server_start in run.py
 
-stdio (for Claude Desktop / `rock --mcp-transport stdio` / `rock-mcp`):
-    run_standalone_stdio()  — loads project + DB independently, then blocks
+stdio (for Claude Desktop / `rock-mcp`):
+    run_stdio_blocking(server)      — called from after_server_start in run.py
+    main_stdio_entry()              — standalone entry point, requires rock running
 """
 
 import asyncio
 import json
+import sys
 import threading
+import urllib.request
+import urllib.parse
+import time
 from typing import Any
 
 from mcp.server import Server
 from mcp.types import Tool, TextContent
 
-from . import db
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 
-# Argument names that carry schedule configuration, not plugin-specific values.
 _SCHEDULE_FIELDS = frozenset({
     "schedule_type",
     "run_at",
@@ -80,31 +85,57 @@ _SCHEDULE_PROPERTIES: dict[str, dict] = {
     "cron_months": {"type": "string", "default": "*", "description": "Cron month field (1-12 / jan-dec / *, ranges, lists)."},
 }
 
+
+# ---------------------------------------------------------------------------
+# HTTP helpers
+# ---------------------------------------------------------------------------
+
+def _api_get(api_url: str, path: str) -> Any:
+    with urllib.request.urlopen(f"{api_url}{path}", timeout=5) as r:
+        return json.loads(r.read())
+
+
+def _api_post(api_url: str, path: str, body: dict, method: str = "POST") -> Any:
+    data = json.dumps(body).encode()
+    req = urllib.request.Request(
+        f"{api_url}{path}",
+        data=data,
+        headers={"Content-Type": "application/json"},
+        method=method,
+    )
+    with urllib.request.urlopen(req, timeout=5) as r:
+        return json.loads(r.read())
+
+
+def _api_delete(api_url: str, path: str) -> Any:
+    req = urllib.request.Request(f"{api_url}{path}", method="DELETE")
+    with urllib.request.urlopen(req, timeout=5) as r:
+        return json.loads(r.read())
+
+
+def _fetch_plugin_metadata(api_url: str, retries: int = 1, delay: float = 1.0) -> dict:
+    for attempt in range(retries):
+        try:
+            return _api_get(api_url, "/api/plugins")
+        except Exception as e:
+            if attempt == retries - 1:
+                raise RuntimeError(f"Cannot reach webrock API at {api_url}: {e}")
+            time.sleep(delay)
+    return {}
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
 def _plugin_to_tool_name(plugin_id: str, all_plugin_ids: list[str]) -> str:
-    """
-    Map plugin_id (e.g. 'lights.turn_on') to a safe MCP tool name.
-    Uses just the function name when unique, otherwise replaces dots with '__'.
-    """
     func_name = plugin_id.rsplit(".", 1)[-1]
     if sum(1 for pid in all_plugin_ids if pid.rsplit(".", 1)[-1] == func_name) == 1:
         return f"schedule_{func_name}"
     return f"schedule_{plugin_id.replace('.', '__')}"
 
 
-def _get_plugin_meta(plugin_id: str, metadata: dict) -> dict:
-    """Walk the nested metadata dict using plugin_id as a dot-separated path."""
-    node = metadata
-    for part in plugin_id.split("."):
-        node = node[part]
-    return node
-
-
 def _build_input_schema(plugin_meta: dict) -> dict:
-    """Build a JSON Schema object for a per-plugin scheduling tool."""
     properties: dict[str, Any] = {}
     required: list[str] = []
 
@@ -128,7 +159,6 @@ def _build_input_schema(plugin_meta: dict) -> dict:
         if arg.get("default") is None:
             required.append(name)
 
-    # Add schedule configuration fields
     properties.update(_SCHEDULE_PROPERTIES)
 
     schema: dict[str, Any] = {"type": "object", "properties": properties}
@@ -138,7 +168,6 @@ def _build_input_schema(plugin_meta: dict) -> dict:
 
 
 def _build_config_from_args(stype: str, arguments: dict) -> dict:
-    """Extract schedule-type config dict from MCP tool arguments."""
     if stype == "once":
         ts = arguments.get("run_at")
         return {"timestamp": ts if ts else "now"}
@@ -161,7 +190,6 @@ def _build_config_from_args(stype: str, arguments: dict) -> dict:
 
 
 def _text(data: Any) -> list[TextContent]:
-    """Wrap a value as a single MCP TextContent result."""
     return [TextContent(type="text", text=json.dumps(data, default=str))]
 
 
@@ -169,25 +197,25 @@ def _text(data: Any) -> list[TextContent]:
 # Server builder
 # ---------------------------------------------------------------------------
 
-def build_mcp_server(plugins: dict, metadata: dict) -> Server:
+def build_mcp_server(api_url: str, plugin_metadata: dict | None = None, retry: bool = False) -> Server:
     """
-    Construct the MCP Server with all tools registered.
-    `plugins`  — the dict loaded by load_project: {plugin_id: {"function": ..., "task": ...}}
-    `metadata` — the nested metadata dict from load_project
+    Build the MCP Server.
+    plugin_metadata: pre-loaded flat {plugin_id: meta} dict — skips the HTTP fetch.
+                     Pass this from run.py where metadata is already in app.ctx.
+    retry=True: retry up to 10 times when fetching from the API (rock-mcp standalone).
+    retry=False: fetch once, fail fast.
     """
+    if plugin_metadata is None:
+        retries = 10 if retry else 1
+        plugin_metadata = _fetch_plugin_metadata(api_url, retries=retries, delay=1.0)
+
     server = Server("webrock")
 
-    # Build tool-name → plugin_id mapping at construction time
-    all_plugin_ids = list(plugins.keys())
+    all_plugin_ids = list(plugin_metadata.keys())
     tool_to_plugin: dict[str, str] = {}
     plugin_tools: list[Tool] = []
 
-    for plugin_id, plugin_info in plugins.items():
-        try:
-            plugin_meta = _get_plugin_meta(plugin_id, metadata)
-        except (KeyError, TypeError):
-            continue
-
+    for plugin_id, plugin_meta in plugin_metadata.items():
         if plugin_meta.get("mcp_disabled"):
             continue
 
@@ -261,53 +289,47 @@ def build_mcp_server(plugins: dict, metadata: dict) -> Server:
     async def handle_call_tool(name: str, arguments: dict | None) -> list[TextContent]:
         args = arguments or {}
 
-        # --- Per-plugin scheduling tools ---
         if name in tool_to_plugin:
             plugin_id = tool_to_plugin[name]
             stype = args.get("schedule_type", "once")
             config_dict = _build_config_from_args(stype, args)
             args_dict = {k: v for k, v in args.items() if k not in _SCHEDULE_FIELDS}
-            new_id = db.insert_schedule(plugin_id, stype, args_dict, config_dict, source="mcp")
-            return _text({"status": "scheduled", "id": new_id, "plugin": plugin_id, "type": stype})
+            result = _api_post(api_url, "/api/schedules", {
+                "plugin_id": plugin_id,
+                "type": stype,
+                "args": args_dict,
+                "config": config_dict,
+            })
+            return _text(result)
 
-        # --- Management tools ---
         if name == "list_schedules":
-            rows = db.get_active_schedules()
+            path = "/api/schedules"
             filter_pid = args.get("plugin_id")
             if filter_pid:
-                rows = [r for r in rows if r["plugin_id"] == filter_pid]
-            result = []
-            for row in rows:
-                result.append({
-                    "id": row["id"],
-                    "plugin_id": row["plugin_id"],
-                    "type": row["type"],
-                    "args": row["args"],
-                    "config": row["config"],
-                    "next_run": db.format_ts(row["next_run"]),
-                    "last_run": db.format_ts(row["last_run"]),
-                    "source": row["source"],
-                })
-            return _text(result)
+                path += f"?plugin_id={urllib.parse.quote(filter_pid)}"
+            schedules_by_plugin = _api_get(api_url, path)
+            flat = [s for jobs in schedules_by_plugin.values() for s in jobs]
+            return _text(flat)
 
         if name == "edit_schedule":
             schedule_id = int(args["id"])
-            stype = args["type"]
-            args_dict = args.get("args", {})
-            config_dict = args.get("config", {})
-            db.update_schedule(schedule_id, stype, args_dict, config_dict)
-            return _text({"status": "updated", "id": schedule_id})
+            result = _api_post(api_url, f"/api/schedules/{schedule_id}", {
+                "type": args["type"],
+                "args": args.get("args", {}),
+                "config": args.get("config", {}),
+            }, method="PATCH")
+            return _text(result)
 
         if name == "cancel_schedule":
             schedule_id = int(args["id"])
-            db.soft_delete_schedule(schedule_id)
-            return _text({"status": "cancelled", "id": schedule_id})
+            result = _api_delete(api_url, f"/api/schedules/{schedule_id}")
+            return _text(result)
 
         if name == "get_run_history":
             plugin_id = args["plugin_id"]
             limit = int(args.get("limit", 50))
-            runs = db.get_runs_for_plugin(plugin_id, limit=limit)
-            return _text(runs)
+            result = _api_get(api_url, f"/api/runs/{urllib.parse.quote(plugin_id)}?limit={limit}")
+            return _text(result)
 
         return _text({"error": f"Unknown tool: {name!r}"})
 
@@ -315,7 +337,7 @@ def build_mcp_server(plugins: dict, metadata: dict) -> Server:
 
 
 # ---------------------------------------------------------------------------
-# SSE transport (runs alongside Sanic in a daemon thread)
+# SSE transport
 # ---------------------------------------------------------------------------
 
 def run_sse_blocking(server: Server, port: int) -> None:
@@ -344,16 +366,15 @@ def run_sse_blocking(server: Server, port: int) -> None:
     uvicorn.run(starlette_app, host="0.0.0.0", port=port, log_level="warning")
 
 
-def start_background_sse(plugins: dict, metadata: dict, port: int) -> None:
-    """Build the MCP server and start its SSE endpoint in a background daemon thread."""
-    server = build_mcp_server(plugins, metadata)
+def start_background_sse(server: Server, port: int) -> None:
+    """Start the MCP SSE server in a background daemon thread."""
     t = threading.Thread(target=run_sse_blocking, args=(server, port), daemon=True)
     t.start()
     print(f"MCP SSE server started on http://0.0.0.0:{port}/sse")
 
 
 # ---------------------------------------------------------------------------
-# stdio transport (standalone process for Claude Desktop)
+# stdio transport
 # ---------------------------------------------------------------------------
 
 def run_stdio_blocking(server: Server) -> None:
@@ -370,25 +391,29 @@ def run_stdio_blocking(server: Server) -> None:
     asyncio.run(_main())
 
 
-def run_standalone_stdio(project_dir: str | None = None) -> None:
-    """
-    Load the project and DB, build the MCP server, then run stdio transport.
-    Used by `rock --mcp-transport stdio` and the `rock-mcp` entry point.
+def start_background_stdio(server: Server) -> None:
+    """Start the MCP stdio server in a background daemon thread."""
+    t = threading.Thread(target=run_stdio_blocking, args=(server,), daemon=True)
+    t.start()
+    print("MCP stdio server started", file=sys.stderr)
 
-    project_dir: absolute path to the directory containing the plugins and
-                 where webrock.db will be created/opened.  Defaults to cwd.
-    """
-    import os
-    from .load_project import load_project
 
-    folder = project_dir or os.getcwd()
-    db_path = os.path.join(folder, "webrock.db")
-    metadata, plugins, _ = asyncio.run(load_project(folder))
-    db.init_db(db_path)
-    server = build_mcp_server(plugins, metadata)
-    run_stdio_blocking(server)
-
+# ---------------------------------------------------------------------------
+# Standalone entry point (rock-mcp)
+# ---------------------------------------------------------------------------
 
 def main_stdio_entry() -> None:
-    """Entry point registered as `rock-mcp` in pyproject.toml."""
-    run_standalone_stdio()
+    """
+    Entry point registered as `rock-mcp` in pyproject.toml.
+    Requires `rock` to already be running.  Connects to the webrock REST API
+    and exposes its plugins as MCP tools over stdio.
+    """
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Run webrock MCP stdio bridge (requires rock running)")
+    parser.add_argument("--api-url", default="http://localhost:8000", dest="api_url",
+                        help="URL of the running webrock API server (default: http://localhost:8000)")
+    args = parser.parse_args()
+
+    server = build_mcp_server(api_url=args.api_url, retry=True)
+    run_stdio_blocking(server)

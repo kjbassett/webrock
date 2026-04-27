@@ -8,10 +8,8 @@ A lightweight scheduling server for Python projects. Add a single decorator to a
 
 ### Installation
 
-Install webrock into your project's environment:
-
 ```bash
-pip install -e /path/to/webrock
+pip install git+https://github.com/kjbassett/webrock@dev
 ```
 
 ### Decorate your functions
@@ -40,6 +38,7 @@ rock                        # web UI on :8000, MCP SSE on :8001
 rock --port 8080            # custom web UI port
 rock --no-mcp               # web UI only, no MCP server
 rock --mcp-port 8002        # custom MCP SSE port
+rock --project /path/to/project
 ```
 
 Open `http://localhost:8000` to see all discovered plugins and schedule them.
@@ -114,7 +113,7 @@ Every plugin gets a scheduling form in the web UI with four modes:
 | **Cron** | Run on a cron-style schedule (minute, hour, day-of-week, day-of-month, month) |
 | **After** | Trigger automatically when another schedule's job completes |
 
-Schedules are persisted in `webrock.db` (SQLite, created in the project directory). Each schedule row records its `source` (`web` or `mcp`). Completed runs are stored in a `runs` table with start time, finish time, status, and result/error.
+Schedules are persisted in `webrock.db` (SQLite, created in the project directory). Each schedule records its `source` (`web` or `mcp`). Completed runs are stored with start time, finish time, status, and result/error.
 
 ---
 
@@ -145,24 +144,30 @@ Four management tools are always available:
 
 ### Transport modes
 
-**SSE (default)** — MCP server starts automatically alongside Sanic:
+**SSE (default)** — MCP SSE server starts automatically alongside the web UI:
 
 ```bash
-rock                    # MCP SSE on http://localhost:8001/sse
-rock --mcp-port 8002    # custom port
+rock                    # web UI on :8000, MCP SSE on :8001
+rock --mcp-port 8002    # custom MCP port
 ```
 
-**stdio** — standalone process for Claude Desktop (no web UI):
+**stdio** — MCP stdio transport starts alongside the web UI (useful when the client expects stdio):
 
 ```bash
 rock --mcp-transport stdio --project /path/to/project
-# or use the dedicated entry point:
-rock-mcp --project /path/to/project
+```
+
+**`rock-mcp` (standalone stdio bridge)** — lightweight process that connects to an already-running `rock` instance. Start `rock` first, then:
+
+```bash
+rock-mcp                              # connects to http://localhost:8000
+rock-mcp --api-url http://localhost:8080
 ```
 
 ### Claude Desktop configuration
 
-**SSE** (connect to a running `rock` instance):
+**SSE** — recommended. Start `rock` and point Claude Desktop at the SSE endpoint:
+
 ```json
 {
   "mcpServers": {
@@ -173,23 +178,37 @@ rock-mcp --project /path/to/project
 }
 ```
 
-**stdio** (Claude Desktop spawns the process):
+**stdio via `rock-mcp`** — Claude Desktop spawns the bridge process; `rock` must already be running:
+
 ```json
 {
   "mcpServers": {
     "webrock": {
-      "command": "/path/to/venv/bin/python",
-      "args": [
-        "-m", "webrock.run",
-        "--mcp-transport", "stdio",
-        "--project", "/path/to/your/project"
-      ]
+      "command": "/path/to/venv/bin/rock-mcp",
+      "args": ["--api-url", "http://localhost:8000"]
     }
   }
 }
 ```
 
-The `--project` argument tells webrock where to scan for plugins and where to create `webrock.db`. It should point to the root directory of the project containing your decorated functions.
+The `--project` argument on `rock` tells webrock where to scan for plugins and where to create `webrock.db`. It should point to the root directory of the project containing your decorated functions.
+
+---
+
+## REST API
+
+The web server exposes a JSON API used by both the web UI and the MCP server:
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/plugins` | All plugins and their metadata |
+| `GET` | `/api/schedules` | Active schedules grouped by plugin (optional `?plugin_id=` filter) |
+| `POST` | `/api/schedules` | Create a schedule — body: `{plugin_id, type, args, config}` |
+| `PATCH` | `/api/schedules/<id>` | Edit a schedule in-place — body: `{type, args, config}` |
+| `DELETE` | `/api/schedules/<id>` | Cancel (soft-delete) a schedule |
+| `GET` | `/api/runs/<plugin_id>` | Run history (optional `?limit=N`, default 50) |
+| `GET` | `/api/plugins/<plugin_id>/status` | Whether the plugin's task is currently running |
+| `POST` | `/api/plugins/<plugin_id>/stop` | Cancel the plugin's running task |
 
 ---
 
@@ -198,13 +217,18 @@ The `--project` argument tells webrock where to scan for plugins and where to cr
 ```
 rock [--port PORT] [--no-mcp] [--mcp-transport {sse,stdio}] [--mcp-port MCP_PORT] [--project PROJECT]
 
-  --port PORT              Sanic web UI port (default: 8000)
-  --no-mcp                 Disable the MCP server entirely
-  --mcp-transport          'sse' starts an HTTP SSE server alongside Sanic (default)
-                           'stdio' starts only a stdio MCP server (no web UI)
-  --mcp-port MCP_PORT      MCP SSE server port (default: 8001)
-  --project PROJECT        Absolute path to the project directory (plugins + webrock.db).
-                           Defaults to the current working directory.
+  --port PORT          Web UI port (default: 8000)
+  --no-mcp             Disable the MCP server entirely
+  --mcp-transport      'sse'   — MCP SSE server alongside the web UI (default)
+                       'stdio' — MCP stdio transport alongside the web UI
+  --mcp-port MCP_PORT  MCP SSE port (default: 8001)
+  --project PROJECT    Path to the project directory (plugins + webrock.db).
+                       Defaults to the current working directory.
+
+rock-mcp [--api-url URL]
+
+  --api-url URL        URL of a running rock instance (default: http://localhost:8000)
+                       Requires rock to already be running.
 ```
 
 ---
@@ -212,17 +236,15 @@ rock [--port PORT] [--no-mcp] [--mcp-transport {sse,stdio}] [--mcp-port MCP_PORT
 ## Development
 
 ```bash
-# Clone and install in editable mode
 git clone https://github.com/kjbassett/webrock
 cd webrock
 pip install -e .
 
 # Run against the bundled test plugins
 rock
-python -m webrock.run               # equivalent
-python -m webrock.run --no-mcp
-python -m webrock.run --mcp-transport stdio --project .
-python -m webrock.run --mcp-transport sse --project .
+rock --no-mcp
+rock --mcp-transport stdio
+rock --mcp-transport sse --mcp-port 8002
 
 # Run tests
 python -m pytest tests/
