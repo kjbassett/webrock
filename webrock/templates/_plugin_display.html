@@ -94,9 +94,7 @@
                                 <label class="form-label">Run After Schedule</label>
                                 <select class="form-select" name="_trigger_schedule_id">
                                     {% for sched in all_schedules %}
-                                        {% if sched.type != 'after' %}
-                                            <option value="{{ sched.id }}">#{{ sched.id }} — {{ sched.plugin_id }} ({{ sched.type }})</option>
-                                        {% endif %}
+                                        <option value="{{ sched.id }}">#{{ sched.id }} — {{ sched.plugin_id }} ({{ sched.type }})</option>
                                     {% endfor %}
                                 </select>
                             </div>

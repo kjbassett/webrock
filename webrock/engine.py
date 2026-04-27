@@ -61,20 +61,24 @@ class Engine:
                     if new_next is not None:
                         db.update_schedule_next_run(row["id"], new_next, last_run=now)
 
-            # Pass 2: "after" schedules
-            if triggered_this_tick:
-                for row in active:
-                    if row["plugin_id"] not in self.plugins:
-                        continue
-                    if row["type"] != "after":
+            # Pass 2: "after" schedules — iterate until the chain is exhausted
+            newly_triggered = set(triggered_this_tick)
+            after_rows = [r for r in active if r["type"] == "after" and r["plugin_id"] in self.plugins]
+            while newly_triggered:
+                just_triggered = set()
+                for row in after_rows:
+                    if row["id"] in triggered_this_tick:
                         continue
                     trigger_id = row["config"].get("trigger_id")
-                    if trigger_id in triggered_this_tick:
+                    if trigger_id in newly_triggered:
                         args = row["args"]
                         plugin = self.plugins[row["plugin_id"]]
                         run_id = db.insert_run(row["id"], row["plugin_id"], args)
                         await self._run_job(plugin, args, run_id)
                         print(f"After-triggered start of {row['plugin_id']}")
+                        just_triggered.add(row["id"])
+                triggered_this_tick |= just_triggered
+                newly_triggered = just_triggered
 
             await asyncio.sleep(1)
 
