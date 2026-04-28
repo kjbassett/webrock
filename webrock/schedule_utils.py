@@ -1,7 +1,34 @@
 import calendar
 import json
 from datetime import datetime, timedelta
-import sys
+
+
+def prepare_args(meta: dict, form: dict) -> dict:
+    """Parse and type-coerce plugin args from an HTTP form dict."""
+    result = {}
+    for arg in meta["args"]:
+        name = arg["name"]
+        if name not in form:
+            if "default" not in arg:
+                raise ValueError(f"Missing required argument {name}")
+            result[name] = arg["default"]
+            continue
+        raw = form[name]
+        value = raw[0] if isinstance(raw, list) else raw
+        _type = arg["type"]
+        if _type == "bool":
+            if isinstance(value, str):
+                value = value.lower() in ("true", "on")
+            else:
+                value = bool(value)
+        elif _type != "any":
+            try:
+                builtin_type = __builtins__[_type]
+            except KeyError:
+                raise ValueError(f"Invalid type for {name}: '{_type}' not found in __builtins__.")
+            value = builtin_type(value)
+        result[name] = value
+    return result
 
 
 def form_to_schedule_parts(meta, form):
@@ -54,35 +81,7 @@ def form_to_schedule_parts(meta, form):
         config["days_of_month"] = get_value("_days_of_month", "*")
         config["months"] = get_value("_months", "*")
 
-    # get function args
-    for arg in meta["args"]:
-        name = arg["name"]
-
-        if name not in form:
-            if "default" not in arg:
-                raise ValueError(f"Missing required argument {name}")
-            form[name] = arg["default"]
-            continue
-
-        value = get_value(name, arg.get("default"))
-
-        _type = arg["type"]
-
-        if _type == "bool":
-            if isinstance(value, str):
-                value = value.lower() in ("true", "on")
-            else:
-                value = bool(value)
-        elif _type != "any":
-            try:
-                builtin_type = __builtins__[_type]
-                value = builtin_type(value)
-            except KeyError:
-                raise ValueError(
-                    f"Invalid type for {name}: '{_type}' not found in __builtins__."
-                )
-
-        job_args[name] = value
+    job_args = prepare_args(meta, form)
 
     return schedule_type, job_args, config
 
@@ -159,7 +158,6 @@ def calculate_next_run(schedule):
     Accepts the flat dict format: {"type": ..., "seconds": ..., "last_run": ..., ...}
     """
     stype = schedule["type"]
-    print(stype, file=sys.stderr)
 
     # --- AFTER (event-driven, no time-based next_run) ---
     if stype == "after":

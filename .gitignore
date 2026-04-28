@@ -1,6 +1,7 @@
 *schedules.json
 webrock.db*
 
+.claude/
 .idea/
 
 # Byte-compiled / optimized / DLL files

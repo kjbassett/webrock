@@ -1,5 +1,5 @@
 import unittest
-from webrock.app import prepare_form_data
+from webrock.schedule_utils import prepare_args
 
 
 class Test_prepare_form_data(unittest.TestCase):
@@ -13,7 +13,7 @@ class Test_prepare_form_data(unittest.TestCase):
         form = {}
 
         with self.assertRaises(ValueError) as context:
-            prepare_form_data(meta, form)
+            prepare_args(meta, form)
 
         self.assertEqual(str(context.exception), "Missing required argument required_arg")
 
@@ -25,7 +25,7 @@ class Test_prepare_form_data(unittest.TestCase):
         }
         form = {}
 
-        result = prepare_form_data(meta, form)
+        result = prepare_args(meta, form)
 
         self.assertEqual(result["optional_arg"], "default_value")
 
@@ -47,7 +47,7 @@ class Test_prepare_form_data(unittest.TestCase):
             "bool_arg_false": ["False"]
         }
 
-        result = prepare_form_data(meta, form)
+        result = prepare_args(meta, form)
 
         self.assertEqual(result["int_arg"], 42)
         self.assertEqual(result["float_arg"], 3.14)
@@ -66,7 +66,7 @@ class Test_prepare_form_data(unittest.TestCase):
         }
 
         with self.assertRaises(ValueError) as context:
-            prepare_form_data(meta, form)
+            prepare_args(meta, form)
 
         self.assertIn("nonexistent_type", str(context.exception))
 
@@ -81,7 +81,7 @@ class Test_prepare_form_data(unittest.TestCase):
         }
         form = {}
 
-        result = prepare_form_data(meta, form)
+        result = prepare_args(meta, form)
 
         self.assertEqual(result["arg1"], "default1")
         self.assertEqual(result["arg2"], 10)
@@ -104,7 +104,7 @@ class Test_prepare_form_data(unittest.TestCase):
             "arg4": ["True"]
         }
 
-        result = prepare_form_data(meta, form)
+        result = prepare_args(meta, form)
 
         self.assertEqual(result["arg1"], "value1")
         self.assertEqual(result["arg2"], 123)
@@ -122,7 +122,7 @@ class Test_prepare_form_data(unittest.TestCase):
         }
 
         with self.assertRaises(ValueError) as context:
-            prepare_form_data(meta, form)
+            prepare_args(meta, form)
 
         self.assertIn("invalid literal for int()", str(context.exception))
 
@@ -142,7 +142,7 @@ class Test_prepare_form_data(unittest.TestCase):
             "opt_arg4": ["True"]
         }
 
-        result = prepare_form_data(meta, form)
+        result = prepare_args(meta, form)
 
         self.assertEqual(result["opt_arg1"], "provided_value1")
         self.assertEqual(result["opt_arg2"], 20)
@@ -159,6 +159,6 @@ class Test_prepare_form_data(unittest.TestCase):
             "any_arg": ["some_value"]
         }
 
-        result = prepare_form_data(meta, form)
+        result = prepare_args(meta, form)
 
         self.assertEqual("some_value", result["any_arg"])

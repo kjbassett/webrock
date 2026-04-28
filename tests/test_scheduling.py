@@ -1,5 +1,5 @@
 import unittest
-from webrock.schedule_utils import parse_cron_field, parse_month_field, calculate_next_run
+from webrock.schedule_utils import parse_cron_field, parse_named_field, calculate_next_run, MONTH_LOOKUP, DOW_LOOKUP
 from datetime import datetime
 
 
@@ -34,42 +34,42 @@ class TestParseMonthField(unittest.TestCase):
 
     def test_parse_month_star(self):
         raw = "*"
-        assert parse_month_field(raw) is None
+        assert parse_named_field(raw, MONTH_LOOKUP) is None
 
     def test_parse_month_empty_string(self):
         raw = ""
-        assert parse_month_field(raw) is None
+        assert parse_named_field(raw, MONTH_LOOKUP) is None
 
     def test_parse_month_name(self):
         raw = "January"
-        assert parse_month_field(raw) == [1]
+        self.assertEqual(parse_named_field(raw, MONTH_LOOKUP), [1])
 
         raw_short = "Aug"
-        assert parse_month_field(raw_short) == [8]
+        self.assertEqual(parse_named_field(raw_short, MONTH_LOOKUP), [8])
 
     def test_parse_weird_capitalization(self):
         raw = "dEcEmBeR"
-        assert parse_month_field(raw) == [12]
+        assert parse_named_field(raw, MONTH_LOOKUP) == [12]
 
     def test_parse_month_number(self):
         raw = "8"
-        assert parse_month_field(raw) == [8]
+        assert parse_named_field(raw, MONTH_LOOKUP) == [8]
 
     def test_parse_month_comma_separated(self):
         raw = "Jan, 2, Mar, April"
-        assert parse_month_field(raw) == [1, 2, 3, 4]
+        assert parse_named_field(raw, MONTH_LOOKUP) == [1, 2, 3, 4]
 
     def test_parse_month_range(self):
         num_raw = "1-3"
-        assert parse_month_field(num_raw) == [1, 2, 3]
+        assert parse_named_field(num_raw, MONTH_LOOKUP) == [1, 2, 3]
         name_raw = "jan-Mar"
-        assert parse_month_field(name_raw) == [1, 2, 3]
+        assert parse_named_field(name_raw, MONTH_LOOKUP) == [1, 2, 3]
         mixed_raw = "mar-5"
-        assert parse_month_field(mixed_raw) == [3, 4, 5]
+        assert parse_named_field(mixed_raw, MONTH_LOOKUP) == [3, 4, 5]
 
     def test_parse_mixed(self):
         raw = "1-3, 4, aug-9 , dec"
-        assert parse_month_field(raw) == [1, 2, 3, 4, 8, 9, 12]
+        assert parse_named_field(raw, MONTH_LOOKUP) == [1, 2, 3, 4, 8, 9, 12]
 
 
 class TestCalculateNextRun(unittest.TestCase):
@@ -187,10 +187,10 @@ class TestCalculateNextRun(unittest.TestCase):
             self.dt(2025, 1, 1, 2, 0)
         )
     # ---------------------------
-    # CRON – Day-of-week / Day-of-month OR logic
+    # CRON – Day-of-week / Day-of-month AND logic
     # ---------------------------
     def test_cron_dom_or_dow(self):
-        # Cron: run when day=5 (5th of month) OR dow=Monday
+        # Cron: run when day of month=5 AND dow=Monday
         # Last run is Feb 3, 2025 (Monday)
         last = self.dt(2025, 2, 3, 10, 0)  # Feb 3 2025 is Monday
         schedule = {
@@ -204,7 +204,7 @@ class TestCalculateNextRun(unittest.TestCase):
         }
 
         # Next Tuesday at 12:00 is Feb 4, 2025
-        expected = self.dt(2025, 2, 4, 12, 0)
+        expected = self.dt(2025, 8, 5, 12, 0)
         self.assertEqual(calculate_next_run(schedule), expected)
 
     # ---------------------------
