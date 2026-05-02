@@ -94,18 +94,39 @@ function renderScheduleRow(job, pluginId) {
 function renderRunRow(run) {
     const fmt = ts => ts ? new Date(ts * 1000).toLocaleString() : "—";
     const tr = document.createElement("tr");
-    [
-        run.id,
-        run.schedule_id,
-        fmt(run.started_at),
-        fmt(run.finished_at),
-        run.status,
-        run.error ?? (run.result !== null ? run.result : "")
-    ].forEach(val => {
+
+    [run.id, run.schedule_id, fmt(run.started_at), fmt(run.finished_at), run.status].forEach(val => {
         const td = document.createElement("td");
         td.textContent = val;
         tr.appendChild(td);
     });
+
+    const td = document.createElement("td");
+    const text = String(run.error ?? (run.result !== null ? run.result : ""));
+
+    if (run.error && text.length > 30) {
+        const textSpan = document.createElement("span");
+        textSpan.textContent = text.slice(0, 30) + "...";
+
+        const chevron = document.createElement("button");
+        chevron.textContent = "▶";
+        chevron.className = "run-error-chevron";
+
+        let expanded = false;
+        chevron.addEventListener("click", () => {
+            expanded = !expanded;
+            textSpan.textContent = expanded ? text : text.slice(0, 30) + "...";
+            textSpan.style.whiteSpace = expanded ? "pre-wrap" : "";
+            chevron.textContent = expanded ? "▼" : "▶";
+        });
+
+        td.appendChild(textSpan);
+        td.appendChild(chevron);
+    } else {
+        td.textContent = text;
+    }
+
+    tr.appendChild(td);
     return tr;
 }
 

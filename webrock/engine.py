@@ -95,7 +95,8 @@ class Engine:
                 asyncio.get_running_loop().create_task(self._trigger_after_jobs(schedule_id))
             except Exception as e:
                 print(f"Error in {plugin['function'].__name__}: {str(e)}")
-                traceback.print_exc()
-                db.complete_run(run_id, "error", error=str(e))
+                tb = traceback.format_exc()
+                print(tb)
+                db.complete_run(run_id, "error", error=tb)
             plugin["task"] = None
         return callback

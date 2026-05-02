@@ -54,3 +54,11 @@ def factorial(n: float):
     if n <= 1:
         return 1
     return n * factorial(n - 1)
+
+
+# 9. Function that always raises an error
+@plugin()
+def always_errors():
+    def inner():
+        raise ValueError("This is a test error with a long traceback")
+    inner()
