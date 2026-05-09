@@ -12,7 +12,7 @@ from sanic_jinja2 import SanicJinja2
 _PACKAGE_DIR = Path(__file__).parent
 
 
-async def create_app(project_dir: str | None = None):
+async def create_app(project_dir: str | None = None, skip_catchup: bool = False):
     app = Sanic("YourApp")
     app.static("/static", str(_PACKAGE_DIR / "static"))
 
@@ -29,7 +29,7 @@ async def create_app(project_dir: str | None = None):
     db_path = os.path.join(folder, "webrock.db")
     db.init_db(db_path)
 
-    engine = Engine(plugins)
+    engine = Engine(plugins, skip_catchup=skip_catchup)
     app.ctx.engine = engine
 
     @app.listener("after_server_start")

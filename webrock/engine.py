@@ -12,10 +12,13 @@ def _run_sync_function(func, kwargs):
 
 
 class Engine:
-    def __init__(self, plugins: dict):
+    def __init__(self, plugins: dict, skip_catchup: bool = False):
         self.plugins = plugins
         self._executor = ThreadPoolExecutor()
         self._task: asyncio.Task | None = None
+        self._pre_startup_ids: set[int] = (
+            {row["id"] for row in db.get_active_schedules()} if skip_catchup else set()
+        )
 
     def start(self):
         self._task = asyncio.create_task(self._run_schedules())
@@ -29,6 +32,8 @@ class Engine:
             active = db.get_active_schedules()
 
             for row in active:
+                if row["id"] in self._pre_startup_ids:
+                    continue
                 if row["plugin_id"] not in self.plugins:
                     continue
                 if row["type"] == "after":
