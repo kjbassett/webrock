@@ -78,6 +78,12 @@ function renderScheduleRow(job, pluginId) {
     lastRunTd.textContent = job.last_run ?? "never";
 
     const btnTd = document.createElement("td");
+
+    const editBtn = document.createElement("button");
+    editBtn.className = "btn btn-sm btn-secondary me-1";
+    editBtn.textContent = "Edit";
+    editBtn.onclick = () => openEditForm(job, pluginId);
+
     const removeBtn = document.createElement("button");
     removeBtn.className = "btn btn-sm btn-danger";
     removeBtn.textContent = "Remove";
@@ -85,6 +91,7 @@ function renderScheduleRow(job, pluginId) {
         await fetch(`/api/schedules/${job.id}`, { method: "DELETE" });
         tr.remove();
     };
+    btnTd.appendChild(editBtn);
     btnTd.appendChild(removeBtn);
 
     tr.append(idTd, typeTd, argsTd, nextRunTd, lastRunTd, btnTd);
@@ -130,14 +137,56 @@ function renderRunRow(run) {
     return tr;
 }
 
+function openEditForm(job, pluginId) {
+    const form = document.getElementById(`plugin-form-${pluginId}`);
+    form.dataset.editId = job.id;
+
+    const typeSelect = document.getElementById(`schedule-type-${pluginId}`);
+    typeSelect.value = job.type;
+    updateScheduleFields(pluginId);
+
+    const setVal = (name, val) => {
+        const el = form.querySelector(`[name="${name}"]`);
+        if (el) el.value = val ?? "";
+    };
+
+    const c = job.config || {};
+    if (job.type === "once")         setVal("_timestamp", c.timestamp === "now" ? "" : (c.timestamp ?? ""));
+    else if (job.type === "interval") setVal("_seconds", c.seconds ?? 60);
+    else if (job.type === "after")    setVal("_trigger_schedule_id", c.trigger_id ?? "");
+    else if (job.type === "cron") {
+        setVal("_minutes",      c.minutes      ?? "*");
+        setVal("_hours",        c.hours        ?? "*");
+        setVal("_days_of_week", c.days_of_week ?? "*");
+        setVal("_days_of_month",c.days_of_month?? "*");
+        setVal("_months",       c.months       ?? "*");
+    }
+
+    for (const [key, val] of Object.entries(job.args || {})) setVal(key, val);
+
+    document.getElementById(`schedule-submit-${pluginId}`).textContent = "Update Schedule";
+    document.getElementById(`schedule-cancel-${pluginId}`).style.display = "";
+    form.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+function cancelEditForm(pluginId) {
+    const form = document.getElementById(`plugin-form-${pluginId}`);
+    delete form.dataset.editId;
+    form.reset();
+    document.getElementById(`schedule-type-${pluginId}`).value = "once";
+    updateScheduleFields(pluginId);
+    document.getElementById(`schedule-submit-${pluginId}`).textContent = "Schedule Job";
+    document.getElementById(`schedule-cancel-${pluginId}`).style.display = "none";
+}
+
 async function submitScheduleForm(event, pluginId) {
     event.preventDefault();
     const form = event.target;
+    const editId = form.dataset.editId ? parseInt(form.dataset.editId, 10) : null;
     const data = Object.fromEntries(new FormData(form));
 
     const stype = data["_schedule_type"] || "once";
 
-    // Build schedule config from underscore-prefixed fields
     let config = {};
     if (stype === "once") {
         config = { timestamp: data["_timestamp"] || "now" };
@@ -155,26 +204,29 @@ async function submitScheduleForm(event, pluginId) {
         };
     }
 
-    // All other fields are plugin args (no underscore prefix)
     const args = {};
     for (const [key, value] of Object.entries(data)) {
-        if (!key.startsWith("_")) {
-            args[key] = value;
-        }
+        if (!key.startsWith("_")) args[key] = value;
     }
 
-    const res = await fetch("/api/schedules", {
-        method: "POST",
+    const url    = editId ? `/api/schedules/${editId}` : "/api/schedules";
+    const method = editId ? "PATCH" : "POST";
+    const body   = editId
+        ? { type: stype, args, config }
+        : { plugin_id: pluginId, type: stype, args, config };
+
+    const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plugin_id: pluginId, type: stype, args, config }),
+        body: JSON.stringify(body),
     });
     const result = await res.json();
-    console.log("Scheduled:", result);
+    console.log(editId ? "Updated:" : "Scheduled:", result);
 
     if (res.ok) {
+        if (editId) cancelEditForm(pluginId);
         const tbody = document.getElementById(`schedule-list-${pluginId}`);
         if (tbody) {
-            // Refresh schedule list for this plugin
             const schedulesRes = await fetch(`/api/schedules?plugin_id=${encodeURIComponent(pluginId)}`);
             if (schedulesRes.ok) {
                 const schedulesByPlugin = await schedulesRes.json();

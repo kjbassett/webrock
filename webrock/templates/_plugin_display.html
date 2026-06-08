@@ -159,8 +159,9 @@
                                 </div>
                             </div>
 
-                            <div class="my-2">
-                                <button class="btn btn-primary" type="submit">Schedule Job</button>
+                            <div class="my-2 d-flex gap-2 align-items-center flex-wrap">
+                                <button id="schedule-submit-{{ plugin.id }}" class="btn btn-primary" type="submit">Schedule Job</button>
+                                <button id="schedule-cancel-{{ plugin.id }}" class="btn btn-outline-secondary" type="button" style="display:none" onclick="cancelEditForm('{{ plugin.id }}')">Cancel</button>
                                 <button class="btn btn-danger" type="button" onclick="stop('{{ plugin.id }}')">Stop</button>
                             </div>
                         </form>
