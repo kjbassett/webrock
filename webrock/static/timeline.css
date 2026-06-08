@@ -176,6 +176,9 @@
     word-break: break-all;
 }
 
+.tl-date-label { fill: #ccc; font-size: 11px; font-family: monospace; }
+.tl-day-line   { stroke: rgba(255,255,255,0.06); stroke-width: 1; }
+
 .tl-tip-pre {
     color: #a8d8a8;
     font-family: monospace;
