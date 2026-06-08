@@ -3,8 +3,10 @@
 <head>
     <title>Control Panel</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='control_panel.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='timeline.css') }}">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="{{ url_for('static', filename='control_panel.js') }}"></script>
+    <script src="{{ url_for('static', filename='timeline.js') }}"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </head>
 <body>
@@ -22,6 +24,22 @@
             {% endif %}
         {% endfor %}
     {% endmacro %}
+
+    <button id="timeline-toggle" class="timeline-toggle-btn">Timeline ▾</button>
+    <div id="timeline-section" class="timeline-section" style="display:none">
+        <div class="timeline-controls">
+            <label class="timeline-zoom-label">
+                Zoom&nbsp;
+                <input type="range" id="timeline-zoom" min="1" max="200" value="30">
+                <span id="timeline-zoom-display">30</span>&nbsp;px/min
+            </label>
+            <button id="timeline-refresh" class="btn btn-sm btn-outline-secondary">&#8635; Refresh</button>
+        </div>
+        <div id="timeline-scroll" class="timeline-scroll">
+            <svg id="timeline-svg"></svg>
+        </div>
+        <div id="timeline-tooltip" style="display:none"></div>
+    </div>
 
     <div class="plugins">
         {{ render_plugins(metadata) }}

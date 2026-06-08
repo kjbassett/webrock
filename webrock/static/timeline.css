@@ -1,0 +1,190 @@
+/* ── Toggle button ─────────────────────────────────────────────────────────── */
+
+.timeline-toggle-btn {
+    display: block;
+    margin: 16px auto 0;
+    padding: 6px 24px;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    color: #ddd;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.timeline-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+/* ── Container ─────────────────────────────────────────────────────────────── */
+
+.timeline-section {
+    position: relative;
+    margin: 12px 20px 0;
+    background: rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(6px);
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+    overflow: visible;
+}
+
+/* ── Controls bar ──────────────────────────────────────────────────────────── */
+
+.timeline-controls {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 8px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    color: #ccc;
+    font-size: 13px;
+    flex-wrap: wrap;
+}
+
+.timeline-zoom-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    user-select: none;
+}
+
+#timeline-zoom {
+    width: 120px;
+    accent-color: #4d8ec9;
+}
+
+#timeline-zoom-display {
+    min-width: 28px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ── Scrollable SVG area ───────────────────────────────────────────────────── */
+
+.timeline-scroll {
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-radius: 0 0 10px 10px;
+}
+
+#timeline-svg {
+    display: block;
+}
+
+/* ── Axis ──────────────────────────────────────────────────────────────────── */
+
+.tl-axis-line {
+    stroke: rgba(255, 255, 255, 0.18);
+    stroke-width: 1;
+}
+
+.tl-axis-tick {
+    stroke: rgba(255, 255, 255, 0.25);
+    stroke-width: 1;
+}
+
+.tl-axis-label {
+    fill: #aaa;
+    font-size: 11px;
+    font-family: monospace;
+}
+
+.tl-now-line {
+    stroke: rgba(255, 90, 90, 0.45);
+    stroke-width: 1;
+    stroke-dasharray: 4 4;
+}
+
+.tl-now-label {
+    fill: rgba(255, 110, 110, 0.9);
+    font-size: 11px;
+    font-family: monospace;
+}
+
+/* ── Edges ─────────────────────────────────────────────────────────────────── */
+
+.tl-edge {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.22);
+    stroke-width: 1.5;
+}
+
+.tl-arrow {
+    fill: rgba(255, 255, 255, 0.22);
+}
+
+/* ── Nodes ─────────────────────────────────────────────────────────────────── */
+
+.tl-node {
+    cursor: pointer;
+}
+
+.tl-node-rect {
+    opacity: 0.85;
+    transition: opacity 0.12s, filter 0.12s;
+}
+
+.tl-node:hover .tl-node-rect {
+    opacity: 1;
+    filter: brightness(1.25);
+}
+
+.tl-node-label {
+    fill: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    pointer-events: none;
+    font-family: monospace;
+}
+
+/* ── Tooltip ───────────────────────────────────────────────────────────────── */
+
+#timeline-tooltip {
+    position: fixed;
+    z-index: 1100;
+    background: rgba(18, 18, 26, 0.96);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 8px;
+    padding: 10px 14px;
+    width: 340px;
+    pointer-events: none;
+    font-size: 12px;
+    color: #ddd;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+}
+
+.tl-tip-row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    margin-bottom: 5px;
+}
+
+.tl-tip-key {
+    color: #7eb8d9;
+    font-weight: 700;
+    min-width: 64px;
+    font-family: monospace;
+    flex-shrink: 0;
+}
+
+.tl-tip-val {
+    color: #e0e0e0;
+    word-break: break-all;
+}
+
+.tl-tip-pre {
+    color: #a8d8a8;
+    font-family: monospace;
+    font-size: 11px;
+    white-space: pre;
+    margin: 0;
+    max-height: 72px;
+    overflow-y: auto;
+    background: none;
+    border: none;
+    padding: 0;
+}
