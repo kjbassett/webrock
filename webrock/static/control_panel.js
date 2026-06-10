@@ -215,25 +215,59 @@ async function submitScheduleForm(event, pluginId) {
         ? { type: stype, args, config }
         : { plugin_id: pluginId, type: stype, args, config };
 
-    const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-    });
-    const result = await res.json();
-    console.log(editId ? "Updated:" : "Scheduled:", result);
+    const submitBtn = document.getElementById(`schedule-submit-${pluginId}`);
 
-    if (res.ok) {
-        if (editId) cancelEditForm(pluginId);
-        const tbody = document.getElementById(`schedule-list-${pluginId}`);
-        if (tbody) {
-            const schedulesRes = await fetch(`/api/schedules?plugin_id=${encodeURIComponent(pluginId)}`);
-            if (schedulesRes.ok) {
-                const schedulesByPlugin = await schedulesRes.json();
-                tbody.innerHTML = "";
-                for (const job of (schedulesByPlugin[pluginId] || [])) {
-                    tbody.appendChild(renderScheduleRow(job, pluginId));
-                }
+    let res, result;
+    try {
+        res = await fetch(url, {
+            method,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+        });
+        result = await res.json();
+    } catch (err) {
+        console.error("Schedule request failed:", err);
+        if (submitBtn) {
+            const prev = submitBtn.textContent;
+            submitBtn.textContent = "Request failed";
+            submitBtn.classList.add("btn-danger");
+            submitBtn.classList.remove("btn-primary");
+            setTimeout(() => {
+                submitBtn.textContent = prev;
+                submitBtn.classList.remove("btn-danger");
+                submitBtn.classList.add("btn-primary");
+            }, 3000);
+        }
+        return;
+    }
+
+    if (!res.ok) {
+        console.error(editId ? "Update failed:" : "Schedule failed:", result);
+        if (submitBtn) {
+            const prev = submitBtn.textContent;
+            const msg = result?.error ? `Error: ${result.error}` : `Server error ${res.status}`;
+            submitBtn.textContent = msg;
+            submitBtn.classList.add("btn-danger");
+            submitBtn.classList.remove("btn-primary");
+            setTimeout(() => {
+                submitBtn.textContent = prev;
+                submitBtn.classList.remove("btn-danger");
+                submitBtn.classList.add("btn-primary");
+            }, 4000);
+        }
+        return;
+    }
+
+    console.log(editId ? "Updated:" : "Scheduled:", result);
+    if (editId) cancelEditForm(pluginId);
+    const tbody = document.getElementById(`schedule-list-${pluginId}`);
+    if (tbody) {
+        const schedulesRes = await fetch(`/api/schedules?plugin_id=${encodeURIComponent(pluginId)}`);
+        if (schedulesRes.ok) {
+            const schedulesByPlugin = await schedulesRes.json();
+            tbody.innerHTML = "";
+            for (const job of (schedulesByPlugin[pluginId] || [])) {
+                tbody.appendChild(renderScheduleRow(job, pluginId));
             }
         }
     }
