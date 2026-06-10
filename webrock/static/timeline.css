@@ -179,6 +179,12 @@
 .tl-date-label { fill: #ccc; font-size: 11px; font-family: monospace; }
 .tl-day-line   { stroke: rgba(255,255,255,0.06); stroke-width: 1; }
 
+.tl-overlay { fill: rgba(0,0,0,0); transition: fill 0.15s; }
+.tl-overlay.tl-overlay-active { fill: rgba(0,0,0,0.35); }
+
+.tl-node-rect.tl-dimmed { opacity: 0.2; transition: opacity 0.12s; }
+.tl-node-rect.tl-bright { filter: brightness(1.4); opacity: 1; transition: opacity 0.12s, filter 0.12s; }
+
 .tl-tip-pre {
     color: #a8d8a8;
     font-family: monospace;
