@@ -185,7 +185,7 @@ def calculate_next_run(schedule):
     dow = parse_named_field(schedule["days_of_week"], DOW_LOOKUP)
     months = parse_named_field(schedule["months"], MONTH_LOOKUP)
 
-    t = datetime.fromtimestamp(last_run) + timedelta(minutes=1)
+    t = datetime.fromtimestamp(max(last_run, datetime.now().timestamp())) + timedelta(minutes=1)
     t = t.replace(second=0, microsecond=0)
 
     end = t + timedelta(days=365 * 5)
