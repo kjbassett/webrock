@@ -144,32 +144,39 @@ body {
 }
 
 .schedmgr-table {
-    color: #ccc;
+    color: #fff;
     font-size: 12px;
     margin-bottom: 0;
-    --bs-table-bg: transparent;
-    --bs-table-color: #ccc;
-    --bs-table-striped-bg: rgba(255,255,255,0.02);
-    --bs-table-hover-bg: rgba(255,255,255,0.04);
 }
 
-.schedmgr-table thead th {
-    color: #aaa;
+/* Force all Bootstrap table cells transparent — Bootstrap sets bg via this exact selector */
+.schedmgr-table > :not(caption) > * > * {
+    background-color: transparent !important;
+    color: #fff !important;
+    border-color: rgba(255,255,255,0.08) !important;
+    box-shadow: none !important;
+}
+
+.schedmgr-table > tbody > tr {
+    backdrop-filter: blur(4px);
+    background-color: rgba(255,255,255,0.04);
+    transition: background-color 0.12s;
+}
+
+.schedmgr-table > tbody > tr:hover {
+    background-color: rgba(255,255,255,0.08);
+}
+
+.schedmgr-table > thead > tr > th {
+    color: rgba(255,255,255,0.6) !important;
     font-weight: 600;
-    border-color: rgba(255,255,255,0.1);
-    background: transparent;
-}
-
-.schedmgr-table td {
-    border-color: rgba(255,255,255,0.07);
-    vertical-align: middle;
-    background: transparent;
+    border-bottom-color: rgba(255,255,255,0.12) !important;
 }
 
 .schedmgr-state-btn {
     appearance: none;
     background: transparent;
-    border: 1.5px solid rgba(255,255,255,0.55);
+    border: 1.5px solid rgba(255,255,255,0.7);
     border-radius: 3px;
     padding: 2px 7px;
     cursor: pointer;
@@ -196,7 +203,7 @@ body {
     width: 15px;
     height: 15px;
     background: transparent;
-    border: 1.5px solid rgba(255,255,255,0.55);
+    border: 1.5px solid rgba(255,255,255,0.7);
     border-radius: 3px;
     cursor: pointer;
     position: relative;
@@ -212,8 +219,8 @@ body {
     top: 0px;
     width: 6px;
     height: 10px;
-    border-right: 1.5px solid rgba(255,255,255,0.55);
-    border-bottom: 1.5px solid rgba(255,255,255,0.55);
+    border-right: 1.5px solid rgba(255,255,255,0.7);
+    border-bottom: 1.5px solid rgba(255,255,255,0.7);
     transform: rotate(45deg) translate(-1px, -2px);
 }
 
