@@ -123,12 +123,23 @@
 
 .tl-node-rect {
     opacity: 0.85;
-    transition: opacity 0.12s, filter 0.12s;
+    stroke: none;
+    stroke-width: 2;
+    transition: opacity 0.12s, filter 0.12s, stroke 0.18s;
 }
 
 .tl-node:hover .tl-node-rect {
     opacity: 1;
     filter: brightness(1.25);
+}
+
+.tl-node-rect.tl-paused {
+    opacity: 0.3;
+    filter: saturate(0.3);
+}
+
+.tl-node-rect.tl-selected {
+    stroke: rgba(255, 255, 255, 0.75);
 }
 
 .tl-node-label {

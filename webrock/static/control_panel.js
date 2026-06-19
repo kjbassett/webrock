@@ -273,6 +273,18 @@ async function submitScheduleForm(event, pluginId) {
     }
 }
 
+function syncTimelineSelection() {
+    const checkedIds = new Set(
+        [...document.querySelectorAll("#schedmgr-body .schedule-cb:checked")]
+            .map(cb => cb.dataset.id)
+    );
+    document.querySelectorAll(".tl-node[data-schedule-id]").forEach(g => {
+        const sid = String(g.getAttribute("data-schedule-id"));
+        const rect = g.querySelector(".tl-node-rect");
+        if (rect) rect.classList.toggle("tl-selected", checkedIds.has(sid));
+    });
+}
+
 function renderSchedMgrRow(job) {
     const tr = document.createElement("tr");
     tr.dataset.schedId = job.id;
@@ -284,6 +296,12 @@ function renderSchedMgrRow(job) {
     cb.type = "checkbox";
     cb.className = "schedule-cb";
     cb.dataset.id = job.id;
+    cb.addEventListener("change", () => {
+        syncTimelineSelection();
+        const allCbs = document.querySelectorAll("#schedmgr-body .schedule-cb");
+        const selectAll = document.getElementById("schedmgr-select-all");
+        if (selectAll) selectAll.checked = allCbs.length > 0 && [...allCbs].every(c => c.checked);
+    });
     cbTd.appendChild(cb);
 
     const idTd = document.createElement("td");
@@ -303,12 +321,12 @@ function renderSchedMgrRow(job) {
 
     const stateTd = document.createElement("td");
     const badge = document.createElement("span");
-    if (job.running) {
-        badge.className = "badge text-bg-primary";
-        badge.textContent = "Running";
-    } else if (job.paused) {
+    if (job.paused) {
         badge.className = "badge text-bg-warning";
         badge.textContent = "Paused";
+    } else if (job.running) {
+        badge.className = "badge text-bg-primary";
+        badge.textContent = "Running";
     } else {
         badge.className = "badge schedmgr-idle";
         badge.textContent = "Idle";
@@ -319,7 +337,7 @@ function renderSchedMgrRow(job) {
     btnTd.className = "d-flex gap-1 flex-nowrap";
 
     const pauseBtn = document.createElement("button");
-    pauseBtn.className = "btn btn-sm " + (job.paused ? "btn-outline-success" : "btn-outline-secondary");
+    pauseBtn.className = "schedmgr-state-btn";
     pauseBtn.textContent = job.paused ? "▶" : "⏸";
     pauseBtn.title = job.paused ? "Resume" : "Pause";
     pauseBtn.onclick = async () => {
@@ -333,7 +351,7 @@ function renderSchedMgrRow(job) {
 
     const resetBtn = document.createElement("button");
     resetBtn.className = "btn btn-sm btn-outline-secondary";
-    resetBtn.textContent = "Reset";
+    resetBtn.textContent = "Reset Next Run";
     resetBtn.title = "Clear next_run so the scheduler recalculates from now";
     resetBtn.onclick = async () => {
         await fetch(`/api/schedules/${job.id}/reset`, { method: "POST" });
@@ -358,6 +376,12 @@ function renderSchedMgrRow(job) {
 async function loadSchedMgr() {
     const tbody = document.getElementById("schedmgr-body");
     if (!tbody) return;
+
+    const prevChecked = new Set(
+        [...document.querySelectorAll("#schedmgr-body .schedule-cb:checked")]
+            .map(cb => cb.dataset.id)
+    );
+
     const res = await fetch("/api/schedules");
     if (!res.ok) return;
     const byPlugin = await res.json();
@@ -365,8 +389,15 @@ async function loadSchedMgr() {
     tbody.innerHTML = "";
     for (const job of jobs) tbody.appendChild(renderSchedMgrRow(job));
 
+    document.querySelectorAll("#schedmgr-body .schedule-cb").forEach(cb => {
+        if (prevChecked.has(cb.dataset.id)) cb.checked = true;
+    });
+
+    const allCbs = document.querySelectorAll("#schedmgr-body .schedule-cb");
     const selectAll = document.getElementById("schedmgr-select-all");
-    if (selectAll) selectAll.checked = false;
+    if (selectAll) selectAll.checked = allCbs.length > 0 && [...allCbs].every(c => c.checked);
+
+    syncTimelineSelection();
 }
 
 window.addEventListener("DOMContentLoaded", async () => {
@@ -464,6 +495,34 @@ window.addEventListener("DOMContentLoaded", async () => {
 
     document.getElementById("schedmgr-pause-btn").addEventListener("click", () => bulkSetPaused(true));
     document.getElementById("schedmgr-start-btn").addEventListener("click", () => bulkSetPaused(false));
+
+    async function bulkResetNextRun() {
+        const ids = [...document.querySelectorAll("#schedmgr-body .schedule-cb:checked")]
+            .map(cb => parseInt(cb.dataset.id, 10));
+        if (!ids.length) return;
+        await Promise.all(ids.map(id => fetch(`/api/schedules/${id}/reset`, { method: "POST" })));
+        loadSchedMgr();
+    }
+    document.getElementById("schedmgr-reset-btn").addEventListener("click", bulkResetNextRun);
+
+    window.tlSelectSchedule = async function(scheduleId) {
+        if (schedmgrSection.style.display === "none") {
+            schedmgrSection.style.display = "block";
+            schedmgrToggle.textContent = "Schedules ▴";
+        }
+        if (!schedmgrLoaded) {
+            schedmgrLoaded = true;
+            await loadSchedMgr();
+        }
+        const cb = document.querySelector(`#schedmgr-body .schedule-cb[data-id="${scheduleId}"]`);
+        if (cb) {
+            cb.checked = !cb.checked;
+            syncTimelineSelection();
+            const allCbs = document.querySelectorAll("#schedmgr-body .schedule-cb");
+            const selectAll = document.getElementById("schedmgr-select-all");
+            if (selectAll) selectAll.checked = allCbs.length > 0 && [...allCbs].every(c => c.checked);
+        }
+    };
 
     // Load schedules
     const res = await fetch("/api/schedules");

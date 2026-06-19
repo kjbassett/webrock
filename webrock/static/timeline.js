@@ -397,7 +397,7 @@ const TL = (() => {
       g.appendChild(makeSvg('rect', {
         width: w, height: NODE_H,
         rx: Math.min(6, w / 2), ry: 6,
-        fill: color, class: 'tl-node-rect',
+        fill: color, class: 'tl-node-rect' + (s.paused ? ' tl-paused' : ''),
       }));
       if (w >= 24) {
         const t = makeSvg('text', {
@@ -486,11 +486,13 @@ const TL = (() => {
 
       el.addEventListener('click', () => {
         const pluginEl = document.getElementById(`plugin-${s.plugin_id}`);
-        if (!pluginEl) return;
-        pluginEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        const collapseEl = document.getElementById(`collapse-${s.plugin_id}`);
-        if (collapseEl && !collapseEl.classList.contains('show') && typeof bootstrap !== 'undefined')
-          new bootstrap.Collapse(collapseEl, { toggle: true });
+        if (pluginEl) {
+          pluginEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          const collapseEl = document.getElementById(`collapse-${s.plugin_id}`);
+          if (collapseEl && !collapseEl.classList.contains('show') && typeof bootstrap !== 'undefined')
+            new bootstrap.Collapse(collapseEl, { toggle: true });
+        }
+        if (typeof window.tlSelectSchedule === 'function') window.tlSelectSchedule(s.id);
       });
     }
   }
