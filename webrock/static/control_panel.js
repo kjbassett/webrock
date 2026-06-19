@@ -273,6 +273,102 @@ async function submitScheduleForm(event, pluginId) {
     }
 }
 
+function renderSchedMgrRow(job) {
+    const tr = document.createElement("tr");
+    tr.dataset.schedId = job.id;
+    tr.dataset.pluginId = job.plugin_id;
+    tr.dataset.paused = job.paused ? "1" : "0";
+
+    const cbTd = document.createElement("td");
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.className = "schedule-cb";
+    cb.dataset.id = job.id;
+    cbTd.appendChild(cb);
+
+    const idTd = document.createElement("td");
+    idTd.textContent = job.id;
+
+    const pluginTd = document.createElement("td");
+    pluginTd.textContent = job.plugin_id;
+
+    const typeTd = document.createElement("td");
+    typeTd.textContent = formatJob(job);
+
+    const nextTd = document.createElement("td");
+    nextTd.textContent = job.next_run ?? "—";
+
+    const lastTd = document.createElement("td");
+    lastTd.textContent = job.last_run ?? "never";
+
+    const stateTd = document.createElement("td");
+    const badge = document.createElement("span");
+    if (job.running) {
+        badge.className = "badge text-bg-primary";
+        badge.textContent = "Running";
+    } else if (job.paused) {
+        badge.className = "badge text-bg-warning";
+        badge.textContent = "Paused";
+    } else {
+        badge.className = "badge schedmgr-idle";
+        badge.textContent = "Idle";
+    }
+    stateTd.appendChild(badge);
+
+    const btnTd = document.createElement("td");
+    btnTd.className = "d-flex gap-1 flex-nowrap";
+
+    const pauseBtn = document.createElement("button");
+    pauseBtn.className = "btn btn-sm " + (job.paused ? "btn-outline-success" : "btn-outline-secondary");
+    pauseBtn.textContent = job.paused ? "▶" : "⏸";
+    pauseBtn.title = job.paused ? "Resume" : "Pause";
+    pauseBtn.onclick = async () => {
+        await fetch(`/api/schedules/${job.id}/paused`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ paused: !job.paused }),
+        });
+        loadSchedMgr();
+    };
+
+    const resetBtn = document.createElement("button");
+    resetBtn.className = "btn btn-sm btn-outline-secondary";
+    resetBtn.textContent = "Reset";
+    resetBtn.title = "Clear next_run so the scheduler recalculates from now";
+    resetBtn.onclick = async () => {
+        await fetch(`/api/schedules/${job.id}/reset`, { method: "POST" });
+        loadSchedMgr();
+    };
+
+    const stopBtn = document.createElement("button");
+    stopBtn.className = "btn btn-sm btn-outline-danger";
+    stopBtn.textContent = "Stop";
+    stopBtn.disabled = !job.running;
+    stopBtn.onclick = async () => {
+        const pid = job.plugin_id.replaceAll(".", "__");
+        await fetch(`/api/plugins/${pid}/stop`, { method: "POST" });
+        loadSchedMgr();
+    };
+
+    btnTd.append(pauseBtn, resetBtn, stopBtn);
+    tr.append(cbTd, idTd, pluginTd, typeTd, nextTd, lastTd, stateTd, btnTd);
+    return tr;
+}
+
+async function loadSchedMgr() {
+    const tbody = document.getElementById("schedmgr-body");
+    if (!tbody) return;
+    const res = await fetch("/api/schedules");
+    if (!res.ok) return;
+    const byPlugin = await res.json();
+    const jobs = Object.values(byPlugin).flat();
+    tbody.innerHTML = "";
+    for (const job of jobs) tbody.appendChild(renderSchedMgrRow(job));
+
+    const selectAll = document.getElementById("schedmgr-select-all");
+    if (selectAll) selectAll.checked = false;
+}
+
 window.addEventListener("DOMContentLoaded", async () => {
     // Build TOC from plugin elements
     const tocList = document.getElementById("toc-list");
@@ -329,6 +425,45 @@ window.addEventListener("DOMContentLoaded", async () => {
             tocPopup.style.display = "none";
         }
     });
+
+    // Schedule manager panel
+    const schedmgrToggle = document.getElementById("schedmgr-toggle");
+    const schedmgrSection = document.getElementById("schedmgr-section");
+    let schedmgrLoaded = false;
+
+    schedmgrToggle.addEventListener("click", () => {
+        const open = schedmgrSection.style.display === "none";
+        schedmgrSection.style.display = open ? "block" : "none";
+        schedmgrToggle.textContent = open ? "Schedules ▴" : "Schedules ▾";
+        if (open && !schedmgrLoaded) {
+            schedmgrLoaded = true;
+            loadSchedMgr();
+        }
+    });
+
+    document.getElementById("schedmgr-refresh").addEventListener("click", loadSchedMgr);
+
+    document.getElementById("schedmgr-select-all").addEventListener("change", e => {
+        const cbs = document.querySelectorAll("#schedmgr-body .schedule-cb");
+        const allChecked = [...cbs].every(cb => cb.checked);
+        cbs.forEach(cb => { cb.checked = !allChecked; });
+        e.target.checked = !allChecked;
+    });
+
+    async function bulkSetPaused(paused) {
+        const ids = [...document.querySelectorAll("#schedmgr-body .schedule-cb:checked")]
+            .map(cb => parseInt(cb.dataset.id, 10));
+        if (!ids.length) return;
+        await fetch("/api/schedules/bulk-set-paused", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ids, paused }),
+        });
+        loadSchedMgr();
+    }
+
+    document.getElementById("schedmgr-pause-btn").addEventListener("click", () => bulkSetPaused(true));
+    document.getElementById("schedmgr-start-btn").addEventListener("click", () => bulkSetPaused(false));
 
     // Load schedules
     const res = await fetch("/api/schedules");

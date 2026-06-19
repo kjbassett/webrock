@@ -40,6 +40,36 @@
         </div>
     </div>
 
+    <button id="schedmgr-toggle" class="timeline-toggle-btn">Schedules ▾</button>
+    <div id="schedmgr-section" class="timeline-section" style="display:none">
+        <div class="schedmgr-toolbar">
+            <label class="custom-cb-label">
+                <input type="checkbox" id="schedmgr-select-all" class="schedule-cb">
+                Select all
+            </label>
+            <button id="schedmgr-pause-btn" class="btn btn-sm btn-outline-warning">Pause Selected</button>
+            <button id="schedmgr-start-btn" class="btn btn-sm btn-outline-success">Start Selected</button>
+            <button id="schedmgr-refresh" class="btn btn-sm btn-outline-secondary">&#8635;</button>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm schedmgr-table">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>ID</th>
+                        <th>Plugin</th>
+                        <th>Type</th>
+                        <th>Next Run</th>
+                        <th>Last Run</th>
+                        <th>State</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="schedmgr-body"></tbody>
+            </table>
+        </div>
+    </div>
+
     <div class="plugins">
         {{ render_plugins(metadata) }}
     </div>

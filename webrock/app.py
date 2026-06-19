@@ -12,7 +12,7 @@ from sanic_jinja2 import SanicJinja2
 _PACKAGE_DIR = Path(__file__).parent
 
 
-async def create_app(project_dir: str | None = None, skip_catchup: bool = False):
+async def create_app(project_dir: str | None = None, paused: bool = False):
     app = Sanic("YourApp")
     app.static("/static", str(_PACKAGE_DIR / "static"))
 
@@ -29,7 +29,12 @@ async def create_app(project_dir: str | None = None, skip_catchup: bool = False)
     db_path = os.path.join(folder, "webrock.db")
     db.init_db(db_path)
 
-    engine = Engine(plugins, skip_catchup=skip_catchup)
+    if paused:
+        active = db.get_active_schedules()
+        if active:
+            db.bulk_set_paused([r["id"] for r in active], True)
+
+    engine = Engine(plugins)
     app.ctx.engine = engine
 
     @app.listener("after_server_start")
@@ -78,6 +83,7 @@ async def create_app(project_dir: str | None = None, skip_catchup: bool = False)
     @app.route("/api/schedules", methods=["GET"])
     async def api_get_schedules(request):
         rows = db.get_active_schedules()
+        running_ids = db.get_running_schedule_ids()
         filter_pid = request.args.get("plugin_id")
         if filter_pid:
             rows = [r for r in rows if r["plugin_id"] == filter_pid]
@@ -94,6 +100,8 @@ async def create_app(project_dir: str | None = None, skip_catchup: bool = False)
                 "next_run": db.format_ts(row["next_run"]),
                 "last_run": db.format_ts(row["last_run"]),
                 "source": row["source"],
+                "paused": bool(row["paused"]),
+                "running": row["id"] in running_ids,
             })
         return response.json(result)
 
@@ -152,6 +160,26 @@ async def create_app(project_dir: str | None = None, skip_catchup: bool = False)
     async def api_delete_schedule(request, schedule_id):
         db.soft_delete_schedule(schedule_id)
         return response.json({"status": "cancelled", "id": schedule_id})
+
+    @app.route("/api/schedules/bulk-set-paused", methods=["POST"])
+    async def api_bulk_set_paused(request):
+        ids = request.json.get("ids", [])
+        paused = request.json.get("paused", True)
+        if not ids:
+            return response.json({"error": "ids required"}, status=400)
+        db.bulk_set_paused(ids, paused)
+        return response.json({"count": len(ids), "paused": paused})
+
+    @app.route("/api/schedules/<schedule_id:int>/paused", methods=["POST"])
+    async def api_set_schedule_paused(request, schedule_id):
+        paused = request.json.get("paused", True)
+        db.set_schedule_paused(schedule_id, paused)
+        return response.json({"id": schedule_id, "paused": paused})
+
+    @app.route("/api/schedules/<schedule_id:int>/reset", methods=["POST"])
+    async def api_reset_schedule(request, schedule_id):
+        db.reset_schedule_next_run(schedule_id)
+        return response.json({"status": "reset", "id": schedule_id})
 
     @app.route("/api/runs/<plugin_id>")
     async def api_get_runs(request, plugin_id):

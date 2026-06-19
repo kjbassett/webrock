@@ -23,14 +23,17 @@ def main():
         help="Absolute path to the project directory (plugins + webrock.db). Defaults to cwd.",
     )
     parser.add_argument(
-        "--skip-catchup",
+        "--paused",
         action="store_true",
-        dest="skip_catchup",
-        help="Ignore all pre-existing schedules for this session; only run jobs created after startup.",
+        dest="paused",
+        help=(
+            "Start all schedules paused — no schedules run until manually resumed via the UI. "
+            "Use this after a long absence to reset stale schedule timers before they fire."
+        ),
     )
     args = parser.parse_args()
 
-    app = asyncio.run(create_app(project_dir=args.project, skip_catchup=args.skip_catchup))
+    app = asyncio.run(create_app(project_dir=args.project, paused=args.paused))
 
     if not args.no_mcp:
         from .mcp_server import build_mcp_server, run_sse_blocking, start_background_stdio

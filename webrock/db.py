@@ -43,6 +43,12 @@ def init_db(db_path: str) -> sqlite3.Connection:
         _conn.commit()
     except sqlite3.OperationalError:
         pass  # column already exists
+    # Migrate existing DBs that predate the paused column
+    try:
+        _conn.execute("ALTER TABLE schedules ADD COLUMN paused INTEGER NOT NULL DEFAULT 0")
+        _conn.commit()
+    except sqlite3.OperationalError:
+        pass  # column already exists
     _conn.commit()
     return _conn
 
@@ -101,6 +107,32 @@ def update_schedule_next_run(schedule_id: int, next_run: float, last_run: float 
             (next_run, schedule_id),
         )
     get_conn().commit()
+
+
+def set_schedule_paused(schedule_id: int, paused: bool) -> None:
+    get_conn().execute("UPDATE schedules SET paused = ? WHERE id = ?", (int(paused), schedule_id))
+    get_conn().commit()
+
+
+def bulk_set_paused(schedule_ids: list[int], paused: bool) -> None:
+    placeholders = ",".join("?" * len(schedule_ids))
+    get_conn().execute(
+        f"UPDATE schedules SET paused = ? WHERE id IN ({placeholders})",
+        [int(paused), *schedule_ids],
+    )
+    get_conn().commit()
+
+
+def reset_schedule_next_run(schedule_id: int) -> None:
+    get_conn().execute("UPDATE schedules SET next_run = NULL WHERE id = ?", (schedule_id,))
+    get_conn().commit()
+
+
+def get_running_schedule_ids() -> set[int]:
+    rows = get_conn().execute(
+        "SELECT DISTINCT schedule_id FROM runs WHERE status = 'running'"
+    ).fetchall()
+    return {row["schedule_id"] for row in rows}
 
 
 def soft_delete_schedule(schedule_id: int):
