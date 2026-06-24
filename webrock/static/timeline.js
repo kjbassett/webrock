@@ -163,7 +163,7 @@ const TL = (() => {
     if (fh && !fh.has(d.getHours()))   return false;
     if (fd && !fd.has(d.getDate()))     return false;
     if (fM && !fM.has(d.getMonth() + 1)) return false;
-    if (fw && !fw.has(d.getDay()))      return false;
+    if (fw && !fw.has((d.getDay() + 6) % 7)) return false;
     return true;
   }
 
