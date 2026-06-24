@@ -1,5 +1,6 @@
 body {
-    background: #130020;
+    background: #130020 !important;
+    color: rgba(255, 255, 255, 0.9) !important;
     font-family: Arial, sans-serif;
     isolation: isolate;
     overflow-x: hidden;
