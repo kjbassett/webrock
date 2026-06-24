@@ -10,6 +10,14 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </head>
 <body>
+    <div class="neon-bg" aria-hidden="true">
+        <div class="neon-orb neon-orb-1"></div>
+        <div class="neon-orb neon-orb-2"></div>
+        <div class="neon-orb neon-orb-3"></div>
+        <div class="neon-orb neon-orb-4"></div>
+        <div class="neon-orb neon-orb-5"></div>
+    </div>
+
     {% import '_plugin_display.html' as plugin_utils %}
 
     {% macro render_plugins(metadata) %}
@@ -50,6 +58,12 @@
             <button id="schedmgr-pause-btn" class="btn btn-sm btn-outline-warning">Pause Selected</button>
             <button id="schedmgr-start-btn" class="btn btn-sm btn-outline-success">Start Selected</button>
             <button id="schedmgr-reset-btn" class="btn btn-sm btn-outline-secondary">Reset Next Run Selected</button>
+            <button id="schedmgr-resume-at-btn" class="btn btn-sm btn-outline-primary">Resume at...</button>
+            <span id="schedmgr-resume-at-wrap" style="display:none; align-items:center; gap:6px;">
+                <input type="datetime-local" id="schedmgr-resume-at-dt" class="form-control form-control-sm" style="width:auto">
+                <button id="schedmgr-resume-at-confirm" class="btn btn-sm btn-primary">Confirm</button>
+                <button id="schedmgr-resume-at-cancel" class="btn btn-sm btn-link text-light">Cancel</button>
+            </span>
             <button id="schedmgr-refresh" class="btn btn-sm btn-outline-secondary">&#8635;</button>
         </div>
         <div class="table-responsive">

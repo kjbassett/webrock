@@ -53,10 +53,19 @@ function updateScheduleFields(pluginId) {
 function formatJob(job) {
     const c = job.config;
     if (job.type === "interval") return `Every ${c.seconds}s`;
-    if (job.type === "cron") return `Cron: ${c.minutes}m ${c.hours}h`;
-    if (job.type === "once") return `Once @ ${c.timestamp === "now" ? "now" : c.timestamp}`;
+    if (job.type === "cron") return `Recurring: ${c.minutes}m ${c.hours}h`;
+    if (job.type === "once") return `Specific Time @ ${c.timestamp === "now" ? "now" : c.timestamp}`;
     if (job.type === "after") return `After schedule #${c.trigger_id}`;
     return "Unknown";
+}
+
+function editSchedulePlugin(pluginId) {
+    const pluginEl = document.getElementById(`plugin-${pluginId}`);
+    if (!pluginEl) return;
+    pluginEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const collapseEl = document.getElementById(`collapse-${pluginId}`);
+    if (collapseEl && !collapseEl.classList.contains('show') && typeof bootstrap !== 'undefined')
+        new bootstrap.Collapse(collapseEl, { toggle: true });
 }
 
 function renderScheduleRow(job, pluginId) {
@@ -368,7 +377,12 @@ function renderSchedMgrRow(job) {
         loadSchedMgr();
     };
 
-    btnTd.append(pauseBtn, resetBtn, stopBtn);
+    const editBtn = document.createElement("button");
+    editBtn.className = "btn btn-sm btn-outline-info";
+    editBtn.textContent = "Edit";
+    editBtn.onclick = () => editSchedulePlugin(job.plugin_id);
+
+    btnTd.append(pauseBtn, editBtn, resetBtn, stopBtn);
     tr.append(cbTd, idTd, pluginTd, typeTd, nextTd, lastTd, stateTd, btnTd);
     return tr;
 }
@@ -385,7 +399,9 @@ async function loadSchedMgr() {
     const res = await fetch("/api/schedules");
     if (!res.ok) return;
     const byPlugin = await res.json();
-    const jobs = Object.values(byPlugin).flat();
+    const jobs = Object.entries(byPlugin).flatMap(([pluginId, scheds]) =>
+        scheds.map(s => ({ ...s, plugin_id: pluginId }))
+    );
     tbody.innerHTML = "";
     for (const job of jobs) tbody.appendChild(renderSchedMgrRow(job));
 
@@ -479,6 +495,7 @@ window.addEventListener("DOMContentLoaded", async () => {
         const allChecked = [...cbs].every(cb => cb.checked);
         cbs.forEach(cb => { cb.checked = !allChecked; });
         e.target.checked = !allChecked;
+        syncTimelineSelection();
     });
 
     async function bulkSetPaused(paused) {
@@ -504,6 +521,43 @@ window.addEventListener("DOMContentLoaded", async () => {
         loadSchedMgr();
     }
     document.getElementById("schedmgr-reset-btn").addEventListener("click", bulkResetNextRun);
+
+    const RESUME_PLUGIN_ID = "webrock.resume_schedules";
+
+    document.getElementById("schedmgr-resume-at-btn").addEventListener("click", () => {
+        const wrap = document.getElementById("schedmgr-resume-at-wrap");
+        wrap.style.display = wrap.style.display === "none" ? "inline-flex" : "none";
+    });
+
+    document.getElementById("schedmgr-resume-at-cancel").addEventListener("click", () => {
+        document.getElementById("schedmgr-resume-at-wrap").style.display = "none";
+    });
+
+    document.getElementById("schedmgr-resume-at-confirm").addEventListener("click", async () => {
+        const ids = [...document.querySelectorAll("#schedmgr-body .schedule-cb:checked")]
+            .map(cb => cb.dataset.id);
+        if (!ids.length) { alert("Select at least one schedule to resume."); return; }
+        const dtVal = document.getElementById("schedmgr-resume-at-dt").value;
+        if (!dtVal) { alert("Pick a date and time."); return; }
+        const ts = Math.floor(new Date(dtVal).getTime() / 1000);
+        const res = await fetch("/api/schedules", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                plugin_id: RESUME_PLUGIN_ID,
+                type: "once",
+                args: { schedule_ids: ids.join(",") },
+                config: { timestamp: ts },
+            }),
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            alert(`Failed to schedule resume: ${err.error || res.status}`);
+            return;
+        }
+        document.getElementById("schedmgr-resume-at-wrap").style.display = "none";
+        loadSchedMgr();
+    });
 
     window.tlSelectSchedule = async function(scheduleId) {
         if (schedmgrSection.style.display === "none") {
@@ -548,4 +602,22 @@ window.addEventListener("DOMContentLoaded", async () => {
             tbody.appendChild(renderRunRow(run));
         }
     }
+
+    // Neon parallax — each orb drifts at a different rate on scroll
+    (function () {
+        const RATES = [0.07, 0.13, 0.05, 0.11, 0.09];
+        const orbs = document.querySelectorAll(".neon-orb");
+        let ticking = false;
+        window.addEventListener("scroll", () => {
+            if (ticking) return;
+            ticking = true;
+            requestAnimationFrame(() => {
+                const y = window.scrollY;
+                orbs.forEach((orb, i) => {
+                    orb.style.transform = `translateY(${y * RATES[i]}px)`;
+                });
+                ticking = false;
+            });
+        }, { passive: true });
+    }());
 });

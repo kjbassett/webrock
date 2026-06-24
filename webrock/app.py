@@ -4,7 +4,7 @@ from pathlib import Path
 import sanic_jinja2
 
 from .engine import Engine
-from .load_project import load_project
+from .load_project import load_project, load_builtins
 from . import db
 from sanic import Sanic, response
 from sanic_jinja2 import SanicJinja2
@@ -22,6 +22,7 @@ async def create_app(project_dir: str | None = None, paused: bool = False):
 
     folder = os.path.abspath(project_dir or os.getcwd())
     metadata, plugins, shutdown_funcs = await load_project(folder)
+    load_builtins(metadata, plugins)
 
     app.ctx.plugins = plugins
     app.ctx.metadata = metadata

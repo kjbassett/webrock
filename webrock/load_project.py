@@ -131,3 +131,29 @@ def load_plugin(func, func_path, import_path, metadata, name, plugins):
         current_level = current_level.setdefault(part, {})
     current_level[name] = load_plugin_metadata(func)
     current_level[name]["id"] = func_path
+
+
+def load_builtins(metadata: dict, plugins: dict) -> None:
+    """Register webrock built-in plugins into the shared metadata/plugins dicts.
+
+    Built-ins are always available regardless of the user project. They appear
+    under a top-level "webrock" category in the control panel UI and use the
+    ``webrock.<name>`` plugin_id convention.
+
+    Args:
+        metadata: Nested metadata dict populated by load_project (mutated in place).
+        plugins: Flat plugins dict populated by load_project (mutated in place).
+    """
+    from . import _builtins
+    import inspect
+
+    _NAMESPACE = "webrock"
+
+    for name, func in inspect.getmembers(_builtins, inspect.isfunction):
+        if not getattr(func, "is_plugin", False):
+            continue
+        func_path = f"{_NAMESPACE}.{name}"
+        plugins[func_path] = {"function": func, "task": None}
+        category = metadata.setdefault(_NAMESPACE, {})
+        category[name] = load_plugin_metadata(func)
+        category[name]["id"] = func_path

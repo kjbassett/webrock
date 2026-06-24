@@ -64,9 +64,9 @@
                             <!-- Schedule Type -->
                             <label class="form-label" for="schedule-type-{{ plugin.id }}">Schedule Type</label>
                             <select class="form-select" id="schedule-type-{{ plugin.id }}" name="_schedule_type" onchange="updateScheduleFields('{{ plugin.id }}')">
-                                <option value="once">One-Time</option>
+                                <option value="once">Specific Time</option>
                                 <option value="interval">Every X Seconds</option>
-                                <option value="cron">Specific Time</option>
+                                <option value="cron">Recurring</option>
                                 <option value="after">After Another Job</option>
                             </select>
 

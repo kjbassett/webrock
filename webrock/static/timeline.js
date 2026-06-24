@@ -460,6 +460,7 @@ const TL = (() => {
           ${endStr ? `<div class="tl-tip-row"><span class="tl-tip-key">ends at</span><span class="tl-tip-val">${esc(endStr)}</span></div>` : ''}
           <div class="tl-tip-row"><span class="tl-tip-key">args</span><pre class="tl-tip-pre">${esc(JSON.stringify(s.args || {}, null, 2))}</pre></div>
           <div class="tl-tip-row"><span class="tl-tip-key">config</span><pre class="tl-tip-pre">${esc(JSON.stringify(s.config || {}, null, 2))}</pre></div>
+          <div class="tl-tip-row"><button class="btn btn-sm btn-outline-light tl-edit-btn" onclick="editSchedulePlugin('${esc(s.plugin_id)}')">Edit</button></div>
         `;
         tip.style.display = 'block';
         setDim(s.id);
@@ -485,13 +486,6 @@ const TL = (() => {
       });
 
       el.addEventListener('click', () => {
-        const pluginEl = document.getElementById(`plugin-${s.plugin_id}`);
-        if (pluginEl) {
-          pluginEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          const collapseEl = document.getElementById(`collapse-${s.plugin_id}`);
-          if (collapseEl && !collapseEl.classList.contains('show') && typeof bootstrap !== 'undefined')
-            new bootstrap.Collapse(collapseEl, { toggle: true });
-        }
         if (typeof window.tlSelectSchedule === 'function') window.tlSelectSchedule(s.id);
       });
     }
