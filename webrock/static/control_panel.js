@@ -539,7 +539,6 @@ window.addEventListener("DOMContentLoaded", async () => {
         if (!ids.length) { alert("Select at least one schedule to resume."); return; }
         const dtVal = document.getElementById("schedmgr-resume-at-dt").value;
         if (!dtVal) { alert("Pick a date and time."); return; }
-        const ts = Math.floor(new Date(dtVal).getTime() / 1000);
         const res = await fetch("/api/schedules", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -547,7 +546,7 @@ window.addEventListener("DOMContentLoaded", async () => {
                 plugin_id: RESUME_PLUGIN_ID,
                 type: "once",
                 args: { schedule_ids: ids.join(",") },
-                config: { timestamp: ts },
+                config: { timestamp: dtVal },
             }),
         });
         if (!res.ok) {
