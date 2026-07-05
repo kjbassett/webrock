@@ -322,8 +322,56 @@ function renderSchedMgrRow(job) {
     const typeTd = document.createElement("td");
     typeTd.textContent = formatJob(job);
 
+    // Next Run cell with inline "set" picker
     const nextTd = document.createElement("td");
-    nextTd.textContent = job.next_run ?? "—";
+    nextTd.style.whiteSpace = "nowrap";
+    const nextRunSpan = document.createElement("span");
+    nextRunSpan.textContent = job.next_run ?? "—";
+    const setNRBtn = document.createElement("button");
+    setNRBtn.className = "btn btn-sm btn-link p-0 ms-1 text-light";
+    setNRBtn.title = "Set next run time";
+    setNRBtn.textContent = "✎";
+    setNRBtn.style.cssText = "font-size:0.75em;opacity:0.5;vertical-align:middle";
+    const nrPickerWrap = document.createElement("span");
+    nrPickerWrap.style.display = "none";
+    const nrInput = document.createElement("input");
+    nrInput.type = "datetime-local";
+    nrInput.className = "form-control form-control-sm d-inline-block";
+    nrInput.style.cssText = "width:auto;font-size:11px";
+    const nrConfirmBtn = document.createElement("button");
+    nrConfirmBtn.className = "btn btn-sm btn-primary ms-1";
+    nrConfirmBtn.textContent = "✓";
+    const nrCancelBtn = document.createElement("button");
+    nrCancelBtn.className = "btn btn-sm btn-link text-light ms-1";
+    nrCancelBtn.textContent = "✗";
+    nrPickerWrap.append(nrInput, nrConfirmBtn, nrCancelBtn);
+    nextTd.append(nextRunSpan, setNRBtn, nrPickerWrap);
+    setNRBtn.onclick = () => {
+        const now = new Date();
+        now.setSeconds(0, 0);
+        nrInput.value = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+        nextRunSpan.style.display = "none";
+        setNRBtn.style.display = "none";
+        nrPickerWrap.style.display = "";
+    };
+    nrCancelBtn.onclick = () => {
+        nrPickerWrap.style.display = "none";
+        nextRunSpan.style.display = "";
+        setNRBtn.style.display = "";
+    };
+    nrConfirmBtn.onclick = async () => {
+        const val = nrInput.value;
+        if (!val) return;
+        await fetch(`/api/schedules/${job.id}/next-run`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ next_run: val }),
+        });
+        nrPickerWrap.style.display = "none";
+        nextRunSpan.style.display = "";
+        setNRBtn.style.display = "";
+        loadSchedMgr();
+    };
 
     const lastTd = document.createElement("td");
     lastTd.textContent = job.last_run ?? "never";
@@ -332,7 +380,7 @@ function renderSchedMgrRow(job) {
     const badge = document.createElement("span");
     if (job.paused) {
         badge.className = "badge text-bg-warning";
-        badge.textContent = "Paused";
+        badge.textContent = "Inactive";
     } else if (job.running) {
         badge.className = "badge text-bg-primary";
         badge.textContent = "Running";
@@ -348,7 +396,7 @@ function renderSchedMgrRow(job) {
     const pauseBtn = document.createElement("button");
     pauseBtn.className = "schedmgr-state-btn";
     pauseBtn.textContent = job.paused ? "▶" : "⏸";
-    pauseBtn.title = job.paused ? "Resume" : "Pause";
+    pauseBtn.title = job.paused ? "Activate schedule" : "Deactivate schedule";
     pauseBtn.onclick = async () => {
         await fetch(`/api/schedules/${job.id}/paused`, {
             method: "POST",
@@ -367,22 +415,25 @@ function renderSchedMgrRow(job) {
         loadSchedMgr();
     };
 
-    const stopBtn = document.createElement("button");
-    stopBtn.className = "btn btn-sm btn-outline-danger";
-    stopBtn.textContent = "Stop";
-    stopBtn.disabled = !job.running;
-    stopBtn.onclick = async () => {
-        const pid = job.plugin_id.replaceAll(".", "__");
-        await fetch(`/api/plugins/${pid}/stop`, { method: "POST" });
-        loadSchedMgr();
-    };
-
     const editBtn = document.createElement("button");
     editBtn.className = "btn btn-sm btn-outline-info";
     editBtn.textContent = "Edit";
     editBtn.onclick = () => editSchedulePlugin(job.plugin_id);
 
-    btnTd.append(pauseBtn, editBtn, resetBtn, stopBtn);
+    btnTd.append(pauseBtn, editBtn, resetBtn);
+
+    if (job.running) {
+        const stopBtn = document.createElement("button");
+        stopBtn.className = "btn btn-sm btn-outline-danger";
+        stopBtn.textContent = "Stop";
+        stopBtn.onclick = async () => {
+            const pid = job.plugin_id.replaceAll(".", "__");
+            await fetch(`/api/plugins/${pid}/stop`, { method: "POST" });
+            loadSchedMgr();
+        };
+        btnTd.appendChild(stopBtn);
+    }
+
     tr.append(cbTd, idTd, pluginTd, typeTd, nextTd, lastTd, stateTd, btnTd);
     return tr;
 }
@@ -510,8 +561,8 @@ window.addEventListener("DOMContentLoaded", async () => {
         loadSchedMgr();
     }
 
-    document.getElementById("schedmgr-pause-btn").addEventListener("click", () => bulkSetPaused(true));
-    document.getElementById("schedmgr-start-btn").addEventListener("click", () => bulkSetPaused(false));
+    document.getElementById("schedmgr-deactivate-btn").addEventListener("click", () => bulkSetPaused(true));
+    document.getElementById("schedmgr-activate-btn").addEventListener("click", () => bulkSetPaused(false));
 
     async function bulkResetNextRun() {
         const ids = [...document.querySelectorAll("#schedmgr-body .schedule-cb:checked")]
@@ -524,20 +575,20 @@ window.addEventListener("DOMContentLoaded", async () => {
 
     const RESUME_PLUGIN_ID = "webrock.resume_schedules";
 
-    document.getElementById("schedmgr-resume-at-btn").addEventListener("click", () => {
-        const wrap = document.getElementById("schedmgr-resume-at-wrap");
+    document.getElementById("schedmgr-activate-at-btn").addEventListener("click", () => {
+        const wrap = document.getElementById("schedmgr-activate-at-wrap");
         wrap.style.display = wrap.style.display === "none" ? "inline-flex" : "none";
     });
 
-    document.getElementById("schedmgr-resume-at-cancel").addEventListener("click", () => {
-        document.getElementById("schedmgr-resume-at-wrap").style.display = "none";
+    document.getElementById("schedmgr-activate-at-cancel").addEventListener("click", () => {
+        document.getElementById("schedmgr-activate-at-wrap").style.display = "none";
     });
 
-    document.getElementById("schedmgr-resume-at-confirm").addEventListener("click", async () => {
+    document.getElementById("schedmgr-activate-at-confirm").addEventListener("click", async () => {
         const ids = [...document.querySelectorAll("#schedmgr-body .schedule-cb:checked")]
             .map(cb => cb.dataset.id);
-        if (!ids.length) { alert("Select at least one schedule to resume."); return; }
-        const dtVal = document.getElementById("schedmgr-resume-at-dt").value;
+        if (!ids.length) { alert("Select at least one schedule to activate."); return; }
+        const dtVal = document.getElementById("schedmgr-activate-at-dt").value;
         if (!dtVal) { alert("Pick a date and time."); return; }
         const res = await fetch("/api/schedules", {
             method: "POST",
@@ -551,10 +602,10 @@ window.addEventListener("DOMContentLoaded", async () => {
         });
         if (!res.ok) {
             const err = await res.json().catch(() => ({}));
-            alert(`Failed to schedule resume: ${err.error || res.status}`);
+            alert(`Failed to schedule activate: ${err.error || res.status}`);
             return;
         }
-        document.getElementById("schedmgr-resume-at-wrap").style.display = "none";
+        document.getElementById("schedmgr-activate-at-wrap").style.display = "none";
         loadSchedMgr();
     });
 

@@ -182,6 +182,23 @@ async def create_app(project_dir: str | None = None, paused: bool = False):
         db.reset_schedule_next_run(schedule_id)
         return response.json({"status": "reset", "id": schedule_id})
 
+    @app.route("/api/schedules/<schedule_id:int>/next-run", methods=["POST"])
+    async def api_set_schedule_next_run(request, schedule_id):
+        from datetime import datetime as _dt
+        body = request.json or {}
+        next_run_val = body.get("next_run")
+        if next_run_val is None:
+            return response.json({"error": "next_run required"}, status=400)
+        if isinstance(next_run_val, str):
+            try:
+                next_run_ts = _dt.fromisoformat(next_run_val).timestamp()
+            except ValueError:
+                return response.json({"error": "invalid next_run format"}, status=400)
+        else:
+            next_run_ts = float(next_run_val)
+        db.update_schedule_next_run(schedule_id, next_run_ts)
+        return response.json({"status": "updated", "id": schedule_id})
+
     @app.route("/api/runs/<plugin_id>")
     async def api_get_runs(request, plugin_id):
         limit = int(request.args.get("limit", 50))
