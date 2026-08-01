@@ -55,15 +55,16 @@
                 <input type="checkbox" id="schedmgr-select-all" class="schedule-cb">
                 Select all
             </label>
-            <button id="schedmgr-deactivate-btn" class="btn btn-sm btn-outline-warning">Deactivate Schedule</button>
-            <button id="schedmgr-activate-btn" class="btn btn-sm btn-outline-success">Activate Schedule</button>
+            <button id="schedmgr-disable-btn" class="btn btn-sm btn-outline-warning">Disable Schedule</button>
+            <button id="schedmgr-enable-btn" class="btn btn-sm btn-outline-success">Enable Schedule</button>
             <button id="schedmgr-reset-btn" class="btn btn-sm btn-outline-secondary">Clear Next Run Time</button>
-            <button id="schedmgr-activate-at-btn" class="btn btn-sm btn-outline-primary">Activate Schedule at...</button>
-            <span id="schedmgr-activate-at-wrap" style="display:none; align-items:center; gap:6px;">
-                <input type="datetime-local" id="schedmgr-activate-at-dt" class="form-control form-control-sm" style="width:auto">
-                <button id="schedmgr-activate-at-confirm" class="btn btn-sm btn-primary">Confirm</button>
-                <button id="schedmgr-activate-at-cancel" class="btn btn-sm btn-link text-light">Cancel</button>
+            <button id="schedmgr-enable-at-btn" class="btn btn-sm btn-outline-primary">Enable Schedule at...</button>
+            <span id="schedmgr-enable-at-wrap" style="display:none; align-items:center; gap:6px;">
+                <input type="datetime-local" id="schedmgr-enable-at-dt" class="form-control form-control-sm" style="width:auto">
+                <button id="schedmgr-enable-at-confirm" class="btn btn-sm btn-primary">Confirm</button>
+                <button id="schedmgr-enable-at-cancel" class="btn btn-sm btn-link text-light">Cancel</button>
             </span>
+            <button id="schedmgr-system-pause-btn" class="btn btn-sm btn-outline-warning" title="Pause system — new tasks will queue instead of starting">⏸ Pause System</button>
             <button id="schedmgr-refresh" class="btn btn-sm btn-outline-secondary">&#8635;</button>
         </div>
         <div class="table-responsive">
@@ -76,7 +77,8 @@
                         <th>Type</th>
                         <th>Next Run</th>
                         <th>Last Run</th>
-                        <th>State</th>
+                        <th>Schedule</th>
+                        <th>Task</th>
                         <th></th>
                     </tr>
                 </thead>

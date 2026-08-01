@@ -37,18 +37,24 @@ def init_db(db_path: str) -> sqlite3.Connection:
             error        TEXT
         );
     """)
-    # Migrate existing DBs that predate the source column
+    # Migrate: add source column if missing
     try:
         _conn.execute("ALTER TABLE schedules ADD COLUMN source TEXT NOT NULL DEFAULT 'web'")
         _conn.commit()
     except sqlite3.OperationalError:
-        pass  # column already exists
-    # Migrate existing DBs that predate the paused column
+        pass
+    # Migrate: rename paused -> disabled (SQLite 3.25+)
     try:
-        _conn.execute("ALTER TABLE schedules ADD COLUMN paused INTEGER NOT NULL DEFAULT 0")
+        _conn.execute("ALTER TABLE schedules RENAME COLUMN paused TO disabled")
         _conn.commit()
     except sqlite3.OperationalError:
-        pass  # column already exists
+        pass
+    # Migrate: add disabled column if missing (fresh installs that never had paused)
+    try:
+        _conn.execute("ALTER TABLE schedules ADD COLUMN disabled INTEGER NOT NULL DEFAULT 0")
+        _conn.commit()
+    except sqlite3.OperationalError:
+        pass
     _conn.commit()
     return _conn
 
@@ -74,7 +80,7 @@ def update_schedule(schedule_id: int, stype: str, args_dict: dict, config_dict: 
     """Update type/args/config on an existing schedule and recompute next_run."""
     from .schedule_utils import calculate_next_run
     flat = {"type": stype, **config_dict}
-    next_run = calculate_next_run(flat)  # None for "after" type
+    next_run = calculate_next_run(flat)
     get_conn().execute(
         "UPDATE schedules SET type=?, args=?, config=?, next_run=? WHERE id=?",
         (stype, json.dumps(args_dict), json.dumps(config_dict), next_run, schedule_id),
@@ -109,16 +115,18 @@ def update_schedule_next_run(schedule_id: int, next_run: float, last_run: float 
     get_conn().commit()
 
 
-def set_schedule_paused(schedule_id: int, paused: bool) -> None:
-    get_conn().execute("UPDATE schedules SET paused = ? WHERE id = ?", (int(paused), schedule_id))
+def set_schedule_disabled(schedule_id: int, disabled: bool) -> None:
+    """Enable or disable a schedule by ID."""
+    get_conn().execute("UPDATE schedules SET disabled = ? WHERE id = ?", (int(disabled), schedule_id))
     get_conn().commit()
 
 
-def bulk_set_paused(schedule_ids: list[int], paused: bool) -> None:
+def bulk_set_disabled(schedule_ids: list[int], disabled: bool) -> None:
+    """Enable or disable multiple schedules at once."""
     placeholders = ",".join("?" * len(schedule_ids))
     get_conn().execute(
-        f"UPDATE schedules SET paused = ? WHERE id IN ({placeholders})",
-        [int(paused), *schedule_ids],
+        f"UPDATE schedules SET disabled = ? WHERE id IN ({placeholders})",
+        [int(disabled), *schedule_ids],
     )
     get_conn().commit()
 

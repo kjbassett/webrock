@@ -22,5 +22,5 @@ async def resume_schedules(schedule_ids: str) -> str:
     ids = [int(x.strip()) for x in schedule_ids.split(",") if x.strip().isdigit()]
     if not ids:
         return "No valid schedule IDs provided."
-    db.bulk_set_paused(ids, False)
-    return f"Resumed {len(ids)} schedule(s): {ids}"
+    db.bulk_set_disabled(ids, False)
+    return f"Enabled {len(ids)} schedule(s): {ids}"

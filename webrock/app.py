@@ -33,7 +33,7 @@ async def create_app(project_dir: str | None = None, paused: bool = False):
     if paused:
         active = db.get_active_schedules()
         if active:
-            db.bulk_set_paused([r["id"] for r in active], True)
+            db.bulk_set_disabled([r["id"] for r in active], True)
 
     engine = Engine(plugins)
     app.ctx.engine = engine
@@ -66,7 +66,26 @@ async def create_app(project_dir: str | None = None, paused: bool = False):
             all_schedules=all_schedules,
         )
 
-    # --- API Routes ---
+    # --- API: System pause / resume ---
+
+    @app.route("/api/system/status", methods=["GET"])
+    async def api_system_status(request):
+        return response.json({
+            "paused": engine.system_paused,
+            "pending_count": engine.pending_count,
+        })
+
+    @app.route("/api/system/pause", methods=["POST"])
+    async def api_system_pause(request):
+        engine.pause_system()
+        return response.json({"paused": True})
+
+    @app.route("/api/system/resume", methods=["POST"])
+    async def api_system_resume(request):
+        started = engine.resume_system()
+        return response.json({"paused": False, "started": started})
+
+    # --- API: Plugins ---
 
     @app.route("/api/plugins")
     async def api_plugins(request):
@@ -81,10 +100,63 @@ async def create_app(project_dir: str | None = None, paused: bool = False):
                 pass
         return response.json(result)
 
+    @app.route("/api/plugins/<plugin_id>/status")
+    async def api_plugin_status(request, plugin_id):
+        plugin_id = plugin_id.replace("__", ".")
+        if plugin_id not in plugins:
+            return response.json({"error": f"{plugin_id} not found"}, status=404)
+        task_status = engine.get_task_status(plugin_id)
+        plugin = plugins[plugin_id]
+        result = None
+        if plugin["task"] and plugin["task"].done():
+            try:
+                result = plugin["task"].result()
+            except Exception:
+                result = None
+        return response.json({"task_status": task_status, "result": result})
+
+    @app.route("/api/plugins/<plugin_id>/pause", methods=["POST"])
+    async def api_plugin_pause(request, plugin_id):
+        plugin_id = plugin_id.replace("__", ".")
+        if plugin_id not in plugins:
+            return response.json({"error": f"{plugin_id} not found"}, status=404)
+        ok = engine.pause_task(plugin_id)
+        if not ok:
+            return response.json({"error": f"{plugin_id} is not running"}, status=409)
+        return response.json({"task_status": "paused", "plugin_id": plugin_id})
+
+    @app.route("/api/plugins/<plugin_id>/resume", methods=["POST"])
+    async def api_plugin_resume(request, plugin_id):
+        plugin_id = plugin_id.replace("__", ".")
+        if plugin_id not in plugins:
+            return response.json({"error": f"{plugin_id} not found"}, status=404)
+        engine.resume_task(plugin_id)
+        task_status = engine.get_task_status(plugin_id)
+        return response.json({"task_status": task_status, "plugin_id": plugin_id})
+
+    @app.route("/api/plugins/<plugin_id>/stop", methods=["POST"])
+    async def api_plugin_stop(request, plugin_id):
+        plugin_id = plugin_id.replace("__", ".")
+        if plugin_id not in plugins:
+            return response.json({"error": f"{plugin_id} not found"}, status=404)
+        stopped, dependents = engine.stop_task(plugin_id)
+        if not stopped:
+            return response.json({"status": f"{plugin_id} is not running"})
+        dep_info = [
+            {"id": r["id"], "plugin_id": r["plugin_id"], "args": r["args"]}
+            for r in dependents
+        ]
+        return response.json({
+            "status": "stopped",
+            "plugin_id": plugin_id,
+            "dependent_schedules": dep_info,
+        })
+
+    # --- API: Schedules ---
+
     @app.route("/api/schedules", methods=["GET"])
     async def api_get_schedules(request):
         rows = db.get_active_schedules()
-        running_ids = db.get_running_schedule_ids()
         filter_pid = request.args.get("plugin_id")
         if filter_pid:
             rows = [r for r in rows if r["plugin_id"] == filter_pid]
@@ -101,8 +173,8 @@ async def create_app(project_dir: str | None = None, paused: bool = False):
                 "next_run": db.format_ts(row["next_run"]),
                 "last_run": db.format_ts(row["last_run"]),
                 "source": row["source"],
-                "paused": bool(row["paused"]),
-                "running": row["id"] in running_ids,
+                "disabled": bool(row["disabled"]),
+                "task_status": engine.get_task_status(pid),
             })
         return response.json(result)
 
@@ -162,20 +234,20 @@ async def create_app(project_dir: str | None = None, paused: bool = False):
         db.soft_delete_schedule(schedule_id)
         return response.json({"status": "cancelled", "id": schedule_id})
 
-    @app.route("/api/schedules/bulk-set-paused", methods=["POST"])
-    async def api_bulk_set_paused(request):
+    @app.route("/api/schedules/<schedule_id:int>/disabled", methods=["POST"])
+    async def api_set_schedule_disabled(request, schedule_id):
+        disabled = request.json.get("disabled", True)
+        db.set_schedule_disabled(schedule_id, disabled)
+        return response.json({"id": schedule_id, "disabled": disabled})
+
+    @app.route("/api/schedules/bulk-set-disabled", methods=["POST"])
+    async def api_bulk_set_disabled(request):
         ids = request.json.get("ids", [])
-        paused = request.json.get("paused", True)
+        disabled = request.json.get("disabled", True)
         if not ids:
             return response.json({"error": "ids required"}, status=400)
-        db.bulk_set_paused(ids, paused)
-        return response.json({"count": len(ids), "paused": paused})
-
-    @app.route("/api/schedules/<schedule_id:int>/paused", methods=["POST"])
-    async def api_set_schedule_paused(request, schedule_id):
-        paused = request.json.get("paused", True)
-        db.set_schedule_paused(schedule_id, paused)
-        return response.json({"id": schedule_id, "paused": paused})
+        db.bulk_set_disabled(ids, disabled)
+        return response.json({"count": len(ids), "disabled": disabled})
 
     @app.route("/api/schedules/<schedule_id:int>/reset", methods=["POST"])
     async def api_reset_schedule(request, schedule_id):
@@ -199,39 +271,25 @@ async def create_app(project_dir: str | None = None, paused: bool = False):
         db.update_schedule_next_run(schedule_id, next_run_ts)
         return response.json({"status": "updated", "id": schedule_id})
 
+    @app.route("/api/schedules/<schedule_id:int>/run-now", methods=["POST"])
+    async def api_run_schedule_now(request, schedule_id):
+        """Trigger a schedule immediately regardless of next_run."""
+        rows = [r for r in db.get_active_schedules() if r["id"] == schedule_id]
+        if not rows:
+            return response.json({"error": "schedule not found"}, status=404)
+        row = rows[0]
+        plugin_id = row["plugin_id"]
+        if plugin_id not in plugins:
+            return response.json({"error": f"plugin {plugin_id} not loaded"}, status=404)
+        plugin = plugins[plugin_id]
+        run_id = db.insert_run(schedule_id, plugin_id, row["args"])
+        await engine._run_job(plugin, row["args"], run_id, schedule_id)
+        return response.json({"status": "started", "run_id": run_id, "plugin_id": plugin_id})
+
     @app.route("/api/runs/<plugin_id>")
     async def api_get_runs(request, plugin_id):
         limit = int(request.args.get("limit", 50))
         runs = db.get_runs_for_plugin(plugin_id, limit=limit)
         return response.json(runs)
-
-    @app.route("/api/plugins/<plugin_id>/status")
-    async def api_plugin_status(request, plugin_id):
-        plugin_id = plugin_id.replace("__", ".")
-        if plugin_id not in plugins:
-            return response.json({"error": f"{plugin_id} not found"}, status=404)
-        plugin = plugins[plugin_id]
-        if not plugin["task"] or plugin["task"].done():
-            result = None
-            if plugin["task"]:
-                try:
-                    result = plugin["task"].result()
-                except Exception:
-                    result = None
-            return response.json({"running": False, "result": result})
-        return response.json({"running": True})
-
-    @app.route("/api/plugins/<plugin_id>/stop", methods=["POST"])
-    async def api_plugin_stop(request, plugin_id):
-        plugin_id = plugin_id.replace("__", ".")
-        if plugin_id not in plugins:
-            return response.json({"error": f"{plugin_id} not found"}, status=404)
-        plugin = plugins[plugin_id]
-        if not plugin["task"]:
-            return response.json({"status": f"{plugin_id} has not started"})
-        if plugin["task"].done():
-            return response.json({"status": f"{plugin_id} is already finished"})
-        plugin["task"].cancel()
-        return response.json({"status": f"{plugin_id} stopped"})
 
     return app
