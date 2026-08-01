@@ -280,7 +280,7 @@ async def create_app(project_dir: str | None = None, paused: bool = False):
             return response.json({"error": f"plugin {plugin_id} not loaded"}, status=404)
         plugin = plugins[plugin_id]
         run_id = db.insert_run(schedule_id, plugin_id, row["args"])
-        await engine._run_job(plugin, row["args"], run_id, schedule_id)
+        await engine._run_job(plugin, plugin_id, row["args"], run_id, schedule_id)
         return response.json({"status": "started", "run_id": run_id, "plugin_id": plugin_id})
 
     @app.route("/api/runs/<plugin_id>")

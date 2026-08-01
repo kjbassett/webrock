@@ -21,7 +21,7 @@ class Engine:
     Task lifecycle: idle → running → idle (or paused → running → idle).
     System pause queues tasks that would start; resume drains the queue.
     Individual task pause uses asyncio.Event — cooperative plugins call
-    ``await engine.wait_if_paused(plugin_id)`` at safe checkpoints.
+    ``await wait_if_paused(plugin_id)`` (from webrock.pause) at safe checkpoints.
     """
 
     def __init__(self, plugins: dict):
@@ -30,6 +30,7 @@ class Engine:
         self._scheduler_task: asyncio.Task | None = None
         self._system_paused: bool = False
         self._pending_runs: list[dict] = []
+        self._stop_requested: set[str] = set()
         for plugin in plugins.values():
             plugin.setdefault("task", None)
             plugin.setdefault("task_status", TASK_IDLE)
@@ -39,6 +40,8 @@ class Engine:
 
     def start(self) -> None:
         """Start the scheduler loop. Must be called inside a running event loop."""
+        from . import pause as _pause_module
+        _pause_module._engine = self
         for plugin in self.plugins.values():
             plugin["pause_event"] = asyncio.Event()
             plugin["pause_event"].set()
@@ -67,7 +70,7 @@ class Engine:
         for entry in pending:
             run_id = db.insert_run(entry["schedule_id"], entry["plugin_id"], entry["args"])
             asyncio.create_task(
-                self._run_job(entry["plugin"], entry["args"], run_id, entry["schedule_id"])
+                self._run_job(entry["plugin"], entry["plugin_id"], entry["args"], run_id, entry["schedule_id"])
             )
             started.append(entry["plugin_id"])
         return started
@@ -120,12 +123,7 @@ class Engine:
     async def wait_if_paused(self, plugin_id: str) -> None:
         """Cooperative pause point for plugin functions.
 
-        A plugin that wants to support pause/resume should call::
-
-            await engine.wait_if_paused(__name__)
-
-        inside its main loop. The call returns immediately when not paused and
-        suspends the task until the pause is lifted.
+        Plugins import this indirectly via ``webrock.pause.wait_if_paused``.
         """
         plugin = self.plugins.get(plugin_id)
         if plugin and plugin.get("pause_event"):
@@ -144,12 +142,13 @@ class Engine:
         """Cancel a running or pending task and return any dependent schedules.
 
         Handles two cases:
-        - Active task (running or individually paused): cancels the asyncio task.
         - Pending task (queued while system is paused): removes from pending queue.
+        - Active task (running or individually paused): cancels the asyncio task
+          and marks plugin_id in _stop_requested so the done callback knows not
+          to trigger after-jobs even if the task swallows CancelledError.
 
         Returns:
-            (was_stopped, dependent_schedule_rows) so the caller can ask the
-            user whether to start the dependents immediately.
+            (was_stopped, dependent_schedule_rows)
         """
         plugin = self.plugins.get(plugin_id)
         if not plugin:
@@ -172,6 +171,7 @@ class Engine:
         task = plugin.get("task")
         if task and not task.done():
             schedule_id = plugin.get("current_schedule_id")
+            self._stop_requested.add(plugin_id)
             task.cancel()
             stopped = True
 
@@ -228,7 +228,7 @@ class Engine:
                 else:
                     run_id = db.insert_run(row["id"], row["plugin_id"], row["args"])
                     print(f"Scheduled start of {row['plugin_id']}")
-                    await self._run_job(plugin, row["args"], run_id, row["id"])
+                    await self._run_job(plugin, row["plugin_id"], row["args"], run_id, row["id"])
 
                 if row["type"] == "once":
                     db.soft_delete_schedule(row["id"])
@@ -251,9 +251,9 @@ class Engine:
                 plugin = self.plugins[row["plugin_id"]]
                 run_id = db.insert_run(row["id"], row["plugin_id"], row["args"])
                 print(f"After-triggered start of {row['plugin_id']}")
-                await self._run_job(plugin, row["args"], run_id, row["id"])
+                await self._run_job(plugin, row["plugin_id"], row["args"], run_id, row["id"])
 
-    async def _run_job(self, plugin: dict, args: dict, run_id: int, schedule_id: int) -> None:
+    async def _run_job(self, plugin: dict, plugin_id: str, args: dict, run_id: int, schedule_id: int) -> None:
         plugin["current_schedule_id"] = schedule_id
         plugin["current_run_id"] = run_id
         plugin["task_status"] = TASK_RUNNING
@@ -265,13 +265,17 @@ class Engine:
                 self._executor, _run_sync_function, plugin["function"], args
             )
         plugin["task"].add_done_callback(
-            self._make_done_callback(plugin, run_id, schedule_id)
+            self._make_done_callback(plugin, plugin_id, run_id, schedule_id)
         )
 
-    def _make_done_callback(self, plugin: dict, run_id: int, schedule_id: int):
+    def _make_done_callback(self, plugin: dict, plugin_id: str, run_id: int, schedule_id: int):
         def callback(task):
+            # Check stop_requested BEFORE discarding — handles the case where
+            # the plugin swallows CancelledError and the task returns normally.
+            was_explicitly_stopped = plugin_id in self._stop_requested
+            self._stop_requested.discard(plugin_id)
             try:
-                if task.cancelled():
+                if task.cancelled() or was_explicitly_stopped:
                     db.complete_run(run_id, "stopped")
                 else:
                     result = task.result()
