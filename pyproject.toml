@@ -13,7 +13,7 @@ requires-python = ">=3.6"
 dependencies = [
     "sanic<25.12",
     "sanic_jinja2",
-    "mcp",
+    "mcp>=1.0,<2.0",
 ]
 
 # Optional: If you have additional URLs like documentation or source code
