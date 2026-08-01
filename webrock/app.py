@@ -30,12 +30,9 @@ async def create_app(project_dir: str | None = None, paused: bool = False):
     db_path = os.path.join(folder, "webrock.db")
     db.init_db(db_path)
 
-    if paused:
-        active = db.get_active_schedules()
-        if active:
-            db.bulk_set_disabled([r["id"] for r in active], True)
-
     engine = Engine(plugins)
+    if paused:
+        engine.pause_system()
     app.ctx.engine = engine
 
     @app.listener("after_server_start")
