@@ -141,24 +141,44 @@ class Engine:
     # --- Stop with dependent lookup ---
 
     def stop_task(self, plugin_id: str) -> tuple[bool, list[dict]]:
-        """Cancel a running task and return any dependent schedules.
+        """Cancel a running or pending task and return any dependent schedules.
+
+        Handles two cases:
+        - Active task (running or individually paused): cancels the asyncio task.
+        - Pending task (queued while system is paused): removes from pending queue.
 
         Returns:
-            (was_running, dependent_schedule_rows) so the caller can ask the
+            (was_stopped, dependent_schedule_rows) so the caller can ask the
             user whether to start the dependents immediately.
         """
         plugin = self.plugins.get(plugin_id)
         if not plugin:
             return False, []
+
+        stopped = False
+        schedule_id = None
+
+        # Remove any queued pending runs for this plugin (system-paused queue).
+        removed = [e for e in self._pending_runs if e["plugin_id"] == plugin_id]
+        if removed:
+            self._pending_runs = [e for e in self._pending_runs if e["plugin_id"] != plugin_id]
+            plugin["task_status"] = TASK_IDLE
+            if plugin.get("pause_event"):
+                plugin["pause_event"].set()
+            stopped = True
+            schedule_id = removed[-1]["schedule_id"]
+
+        # Cancel active asyncio task (running or individually paused).
         task = plugin.get("task")
-        if not task or task.done():
+        if task and not task.done():
+            schedule_id = plugin.get("current_schedule_id")
+            task.cancel()
+            stopped = True
+
+        if not stopped:
             return False, []
 
-        schedule_id = plugin.get("current_schedule_id")
         dependents = self._get_dependent_schedules(schedule_id) if schedule_id else []
-
-        task.cancel()
-        # task_status is reset by the done callback
         return True, dependents
 
     def _get_dependent_schedules(self, schedule_id: int) -> list[dict]:
