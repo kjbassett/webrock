@@ -1,6 +1,8 @@
 import asyncio
+import inspect
 import time
 import traceback
+import types as _types
 from concurrent.futures import ThreadPoolExecutor
 
 from .schedule_utils import calculate_next_run_from_row
@@ -13,6 +15,32 @@ TASK_PAUSED = "paused"
 
 def _run_sync_function(func, kwargs):
     return func(**kwargs)
+
+
+def _coerce_args(func, args: dict) -> dict:
+    """Coerce string arg values to the types declared in func's annotations."""
+    try:
+        sig = inspect.signature(func)
+    except (ValueError, TypeError):
+        return args
+    coerced = dict(args)
+    for name, param in sig.parameters.items():
+        if name not in coerced or not isinstance(coerced[name], str):
+            continue
+        ann = param.annotation
+        if ann is inspect.Parameter.empty or isinstance(ann, _types.UnionType):
+            continue
+        val = coerced[name]
+        try:
+            if ann is int:
+                coerced[name] = int(val)
+            elif ann is float:
+                coerced[name] = float(val)
+            elif ann is bool:
+                coerced[name] = val.lower() not in ("false", "0", "")
+        except (ValueError, TypeError):
+            pass
+    return coerced
 
 
 class Engine:
@@ -254,6 +282,7 @@ class Engine:
                 await self._run_job(plugin, row["plugin_id"], row["args"], run_id, row["id"])
 
     async def _run_job(self, plugin: dict, plugin_id: str, args: dict, run_id: int, schedule_id: int) -> None:
+        args = _coerce_args(plugin["function"], args)
         plugin["current_schedule_id"] = schedule_id
         plugin["current_run_id"] = run_id
         plugin["task_status"] = TASK_RUNNING
