@@ -162,6 +162,8 @@ async def create_app(project_dir: str | None = None, paused: bool = False):
             pid = row["plugin_id"]
             if pid not in result:
                 result[pid] = []
+            active_schedule_id = plugins.get(pid, {}).get("current_schedule_id")
+            task_status = engine.get_task_status(pid) if active_schedule_id == row["id"] else "idle"
             result[pid].append({
                 "id": row["id"],
                 "type": row["type"],
@@ -171,7 +173,7 @@ async def create_app(project_dir: str | None = None, paused: bool = False):
                 "last_run": db.format_ts(row["last_run"]),
                 "source": row["source"],
                 "disabled": bool(row["disabled"]),
-                "task_status": engine.get_task_status(pid),
+                "task_status": task_status,
             })
         return response.json(result)
 
