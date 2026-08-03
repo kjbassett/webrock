@@ -229,7 +229,9 @@ class Engine:
                 if row["plugin_id"] not in self.plugins:
                     continue
                 if row["type"] == "after":
-                    continue
+                    if row.get("next_run") is None or time.time() < row["next_run"]:
+                        continue
+                    # next_run is set and due — one-shot manual trigger
 
                 if row["next_run"] is None:
                     next_run = calculate_next_run_from_row(row)
@@ -260,6 +262,8 @@ class Engine:
 
                 if row["type"] == "once":
                     db.soft_delete_schedule(row["id"])
+                elif row["type"] == "after":
+                    db.reset_schedule_next_run(row["id"])
                 else:
                     new_next = calculate_next_run_from_row({**row, "last_run": now})
                     if new_next is not None:
