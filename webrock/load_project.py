@@ -1,9 +1,12 @@
 from asyncio import iscoroutinefunction
 import importlib
 import inspect
+import logging
 import os
 import sys
 import types
+
+logger = logging.getLogger("webrock.loader")
 
 
 def load_plugin_metadata(func):
@@ -82,11 +85,11 @@ async def load_project(folder=""):
             module_name = os.path.splitext(file)[0]
             import_path = f"{relative_path}.{module_name}".strip(".")
 
-            print(f"Importing module: {import_path}")
+            logger.debug("Importing module: %s", import_path)
             try:
                 module = importlib.import_module(import_path)
             except ModuleNotFoundError as e:
-                print(f"Error importing {import_path}: {e}")
+                logger.error("Error importing %s: %s", import_path, e)
                 continue
 
             for name, func in inspect.getmembers(module, inspect.isfunction):
@@ -114,9 +117,7 @@ async def run_init(func):
         else:
             func()
     except Exception as e:
-        print(f"Error running init function {func.__name__}")
-        print(f"Error:")
-        print(e)
+        logger.error("Error running init function %s: %s", func.__name__, e)
 
 
 

@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 from pathlib import Path
 import sanic_jinja2
@@ -9,6 +10,8 @@ from . import db
 from sanic import Sanic, response
 from sanic_jinja2 import SanicJinja2
 
+logger = logging.getLogger("webrock.app")
+
 _PACKAGE_DIR = Path(__file__).parent
 
 
@@ -16,7 +19,7 @@ async def create_app(project_dir: str | None = None, paused: bool = False):
     app = Sanic("YourApp")
     app.static("/static", str(_PACKAGE_DIR / "static"))
 
-    print("CREATING APP")
+    logger.info("Creating app")
 
     jinja = SanicJinja2(app, loader=sanic_jinja2.FileSystemLoader(str(_PACKAGE_DIR / "templates")))
 
@@ -37,7 +40,7 @@ async def create_app(project_dir: str | None = None, paused: bool = False):
 
     @app.listener("after_server_start")
     async def start_engine(app, loop):
-        print("starting schedules")
+        logger.info("Starting scheduler")
         engine.start()
 
     @app.listener("before_server_stop")
@@ -50,7 +53,7 @@ async def create_app(project_dir: str | None = None, paused: bool = False):
                 else:
                     func()
             except Exception as e:
-                print(f"Error running shutdown procedure {func.__name__}: {e}")
+                logger.error("Error in shutdown procedure %s: %s", func.__name__, e)
 
     # --- Web UI ---
     @app.route("/")
@@ -169,6 +172,7 @@ async def create_app(project_dir: str | None = None, paused: bool = False):
                 "type": row["type"],
                 "args": row["args"],
                 "config": row["config"],
+                "stop_config": row.get("stop_config"),
                 "next_run": db.format_ts(row["next_run"]),
                 "last_run": db.format_ts(row["last_run"]),
                 "source": row["source"],
@@ -210,11 +214,12 @@ async def create_app(project_dir: str | None = None, paused: bool = False):
         stype = body.get("type", "once")
         args_dict = _coerce_args(plugin_id, body.get("args", {})) if plugin_id else {}
         config_dict = body.get("config", {})
+        stop_config = body.get("stop_config") or None
         if not plugin_id:
             return response.json({"error": "missing plugin_id"}, status=400)
         if plugin_id not in plugins:
             return response.json({"error": f"unknown plugin: {plugin_id}"}, status=404)
-        new_id = db.insert_schedule(plugin_id, stype, args_dict, config_dict, source="web")
+        new_id = db.insert_schedule(plugin_id, stype, args_dict, config_dict, source="web", stop_config=stop_config)
         return response.json({"status": "added", "plugin": plugin_id, "id": new_id})
 
     @app.route("/api/schedules/<schedule_id:int>", methods=["PATCH"])
@@ -223,9 +228,10 @@ async def create_app(project_dir: str | None = None, paused: bool = False):
         stype = body.get("type")
         args_dict = body.get("args", {})
         config_dict = body.get("config", {})
+        stop_config = body.get("stop_config") or None
         if not stype:
             return response.json({"error": "missing type"}, status=400)
-        db.update_schedule(schedule_id, stype, args_dict, config_dict)
+        db.update_schedule(schedule_id, stype, args_dict, config_dict, stop_config=stop_config)
         return response.json({"status": "updated", "id": schedule_id})
 
     @app.route("/api/schedules/<schedule_id:int>", methods=["DELETE"])
@@ -282,7 +288,7 @@ async def create_app(project_dir: str | None = None, paused: bool = False):
             return response.json({"error": f"plugin {plugin_id} not loaded"}, status=404)
         plugin = plugins[plugin_id]
         run_id = db.insert_run(schedule_id, plugin_id, row["args"])
-        await engine._run_job(plugin, plugin_id, row["args"], run_id, schedule_id)
+        await engine._run_job(plugin, plugin_id, row["args"], run_id, schedule_id, row.get("stop_config"))
         return response.json({"status": "started", "run_id": run_id, "plugin_id": plugin_id})
 
     @app.route("/api/runs/<plugin_id>")

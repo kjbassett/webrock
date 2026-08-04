@@ -1,16 +1,19 @@
 import asyncio
 import inspect
+import logging
 import time
 import traceback
 import types as _types
 from concurrent.futures import ThreadPoolExecutor
 
-from .schedule_utils import calculate_next_run_from_row
+from .schedule_utils import calculate_next_run_from_row, calculate_stop_time
 from . import db
 
 TASK_IDLE = "idle"
 TASK_RUNNING = "running"
 TASK_PAUSED = "paused"
+
+logger = logging.getLogger("webrock.engine")
 
 
 def _run_sync_function(func, kwargs):
@@ -59,6 +62,7 @@ class Engine:
         self._system_paused: bool = False
         self._pending_runs: list[dict] = []
         self._stop_requested: set[str] = set()
+        self._task_stop_at: dict[str, float] = {}
         for plugin in plugins.values():
             plugin.setdefault("task", None)
             plugin.setdefault("task_status", TASK_IDLE)
@@ -98,7 +102,10 @@ class Engine:
         for entry in pending:
             run_id = db.insert_run(entry["schedule_id"], entry["plugin_id"], entry["args"])
             asyncio.create_task(
-                self._run_job(entry["plugin"], entry["plugin_id"], entry["args"], run_id, entry["schedule_id"])
+                self._run_job(
+                    entry["plugin"], entry["plugin_id"], entry["args"],
+                    run_id, entry["schedule_id"], entry.get("stop_config"),
+                )
             )
             started.append(entry["plugin_id"])
         return started
@@ -246,19 +253,21 @@ class Engine:
 
                 plugin = self.plugins[row["plugin_id"]]
 
+                stop_config = row.get("stop_config")
                 if self._system_paused:
                     self._pending_runs.append({
                         "plugin": plugin,
                         "plugin_id": row["plugin_id"],
                         "args": row["args"],
                         "schedule_id": row["id"],
+                        "stop_config": stop_config,
                     })
                     plugin["task_status"] = TASK_PAUSED
-                    print(f"System paused — queued {row['plugin_id']}")
+                    logger.info("System paused — queued %s", row["plugin_id"])
                 else:
                     run_id = db.insert_run(row["id"], row["plugin_id"], row["args"])
-                    print(f"Scheduled start of {row['plugin_id']}")
-                    await self._run_job(plugin, row["plugin_id"], row["args"], run_id, row["id"])
+                    logger.info("Scheduled start of %s", row["plugin_id"])
+                    await self._run_job(plugin, row["plugin_id"], row["args"], run_id, row["id"], stop_config)
 
                 if row["type"] == "once":
                     db.soft_delete_schedule(row["id"])
@@ -268,6 +277,14 @@ class Engine:
                     new_next = calculate_next_run_from_row({**row, "last_run": now})
                     if new_next is not None:
                         db.update_schedule_next_run(row["id"], new_next, last_run=now)
+
+            # Stop tasks whose scheduled stop time has arrived
+            now = time.time()
+            for pid, stop_at in list(self._task_stop_at.items()):
+                plugin = self.plugins.get(pid)
+                if plugin and plugin.get("task") and not plugin["task"].done() and now >= stop_at:
+                    logger.info("Stop time reached for %s — cancelling", pid)
+                    self.stop_task(pid)
 
             await asyncio.sleep(1)
 
@@ -282,11 +299,27 @@ class Engine:
             if row["config"].get("trigger_id") == completed_schedule_id:
                 plugin = self.plugins[row["plugin_id"]]
                 run_id = db.insert_run(row["id"], row["plugin_id"], row["args"])
-                print(f"After-triggered start of {row['plugin_id']}")
-                await self._run_job(plugin, row["plugin_id"], row["args"], run_id, row["id"])
+                logger.info("After-triggered start of %s", row["plugin_id"])
+                await self._run_job(plugin, row["plugin_id"], row["args"], run_id, row["id"], row.get("stop_config"))
 
-    async def _run_job(self, plugin: dict, plugin_id: str, args: dict, run_id: int, schedule_id: int) -> None:
+    async def _run_job(
+        self,
+        plugin: dict,
+        plugin_id: str,
+        args: dict,
+        run_id: int,
+        schedule_id: int,
+        stop_config: dict | None = None,
+    ) -> None:
         args = _coerce_args(plugin["function"], args)
+
+        # Stop any existing run of this plugin if configured to do so
+        if stop_config and stop_config.get("stop_if_new_start"):
+            task = plugin.get("task")
+            if task and not task.done():
+                logger.info("stop_if_new_start: cancelling previous run of %s", plugin_id)
+                self.stop_task(plugin_id)
+
         plugin["current_schedule_id"] = schedule_id
         plugin["current_run_id"] = run_id
         plugin["task_status"] = TASK_RUNNING
@@ -297,6 +330,12 @@ class Engine:
             plugin["task"] = loop.run_in_executor(
                 self._executor, _run_sync_function, plugin["function"], args
             )
+
+        # Cache the pre-computed stop time so the scheduler loop can check cheaply
+        stop_time = calculate_stop_time(stop_config, time.time())
+        if stop_time is not None:
+            self._task_stop_at[plugin_id] = stop_time
+
         plugin["task"].add_done_callback(
             self._make_done_callback(plugin, plugin_id, run_id, schedule_id)
         )
@@ -307,24 +346,28 @@ class Engine:
             # the plugin swallows CancelledError and the task returns normally.
             was_explicitly_stopped = plugin_id in self._stop_requested
             self._stop_requested.discard(plugin_id)
+            self._task_stop_at.pop(plugin_id, None)
             try:
                 if task.cancelled() or was_explicitly_stopped:
                     db.complete_run(run_id, "stopped")
                 else:
                     result = task.result()
-                    print(f"Finished {plugin['function'].__name__}")
+                    logger.info("Finished %s", plugin["function"].__name__)
                     db.complete_run(run_id, "success", result=result)
                     asyncio.get_running_loop().create_task(
                         self._trigger_after_jobs(schedule_id)
                     )
             except Exception as e:
-                print(f"Error in {plugin['function'].__name__}: {e}")
+                logger.error("Error in %s: %s", plugin["function"].__name__, e)
                 db.complete_run(run_id, "error", error=traceback.format_exc())
             finally:
-                plugin["task"] = None
-                plugin["task_status"] = TASK_IDLE
-                plugin["current_schedule_id"] = None
-                plugin["current_run_id"] = None
-                if plugin.get("pause_event"):
-                    plugin["pause_event"].set()
+                # Only reset plugin state if we are still the current task.
+                # stop_if_new_start can start a new task before our callback fires.
+                if plugin.get("task") is task:
+                    plugin["task"] = None
+                    plugin["task_status"] = TASK_IDLE
+                    plugin["current_schedule_id"] = None
+                    plugin["current_run_id"] = None
+                    if plugin.get("pause_event"):
+                        plugin["pause_event"].set()
         return callback

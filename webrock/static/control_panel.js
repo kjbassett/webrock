@@ -35,6 +35,21 @@ function updateScheduleFields(pluginId) {
     }
 }
 
+function updateStopFields(pluginId) {
+    const form = document.getElementById(`plugin-form-${pluginId}`);
+    if (!form) return;
+    const type = form.querySelector('[name="_stop_type"]')?.value || "";
+    const sections = {
+        duration: `stop-duration-${pluginId}`,
+        at_time:  `stop-attime-${pluginId}`,
+        cron:     `stop-cron-${pluginId}`,
+    };
+    for (const [key, id] of Object.entries(sections)) {
+        const el = document.getElementById(id);
+        if (el) el.style.display = key === type ? "block" : "none";
+    }
+}
+
 function formatJob(job) {
     const c = job.config;
     if (job.type === "interval") return `Every ${c.seconds}s`;
@@ -133,6 +148,26 @@ function openEditForm(job, pluginId) {
         setVal("_months",        c.months        ?? "*");
     }
     for (const [key, val] of Object.entries(job.args || {})) setVal(key, val);
+
+    // Populate stop config fields
+    const sc = job.stop_config || {};
+    const stopTypeEl = form.querySelector('[name="_stop_type"]');
+    if (stopTypeEl) {
+        stopTypeEl.value = sc.type || "";
+        updateStopFields(pluginId);
+    }
+    if (sc.type === "duration") setVal("_stop_seconds", sc.seconds ?? "");
+    else if (sc.type === "at_time") setVal("_stop_at", sc.stop_at ?? "");
+    else if (sc.type === "cron") {
+        setVal("_stop_minutes",       sc.minutes       ?? "*");
+        setVal("_stop_hours",         sc.hours         ?? "*");
+        setVal("_stop_days_of_week",  sc.days_of_week  ?? "*");
+        setVal("_stop_days_of_month", sc.days_of_month ?? "*");
+        setVal("_stop_months",        sc.months        ?? "*");
+    }
+    const sinnsEl = form.querySelector('[name="_stop_if_new_start"]');
+    if (sinnsEl) sinnsEl.checked = !!sc.stop_if_new_start;
+
     document.getElementById(`schedule-submit-${pluginId}`).textContent = "Update Schedule";
     document.getElementById(`schedule-cancel-${pluginId}`).style.display = "";
     form.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -144,6 +179,7 @@ function cancelEditForm(pluginId) {
     form.reset();
     document.getElementById(`schedule-type-${pluginId}`).value = "once";
     updateScheduleFields(pluginId);
+    updateStopFields(pluginId);
     document.getElementById(`schedule-submit-${pluginId}`).textContent = "Schedule Job";
     document.getElementById(`schedule-cancel-${pluginId}`).style.display = "none";
 }
@@ -171,10 +207,32 @@ async function submitScheduleForm(event, pluginId) {
     for (const [key, value] of Object.entries(data)) {
         if (!key.startsWith("_")) args[key] = value;
     }
+    // Build stop_config from advanced options
+    const stopType = data["_stop_type"] || "";
+    let stop_config = null;
+    if (stopType === "duration") {
+        stop_config = { type: "duration", seconds: parseFloat(data["_stop_seconds"] || "3600") };
+    } else if (stopType === "at_time") {
+        stop_config = { type: "at_time", stop_at: data["_stop_at"] || "" };
+    } else if (stopType === "cron") {
+        stop_config = {
+            type: "cron",
+            minutes:       data["_stop_minutes"]       || "*",
+            hours:         data["_stop_hours"]         || "*",
+            days_of_week:  data["_stop_days_of_week"]  || "*",
+            days_of_month: data["_stop_days_of_month"] || "*",
+            months:        data["_stop_months"]        || "*",
+        };
+    }
+    if (data["_stop_if_new_start"] === "true") {
+        stop_config = stop_config || {};
+        stop_config.stop_if_new_start = true;
+    }
+
     const url    = editId ? `/api/schedules/${editId}` : "/api/schedules";
     const method = editId ? "PATCH" : "POST";
-    const body   = editId ? { type: stype, args, config }
-                          : { plugin_id: pluginId, type: stype, args, config };
+    const body   = editId ? { type: stype, args, config, stop_config }
+                          : { plugin_id: pluginId, type: stype, args, config, stop_config };
     const submitBtn = document.getElementById(`schedule-submit-${pluginId}`);
     let res, result;
     try {
@@ -360,19 +418,6 @@ function renderSchedMgrRow(job) {
     const btnTd = document.createElement("td");
     btnTd.className = "d-flex gap-1 flex-nowrap";
 
-    // Schedule enable/disable toggle
-    const toggleSchedBtn = document.createElement("button");
-    toggleSchedBtn.className = "schedmgr-state-btn";
-    toggleSchedBtn.textContent = job.disabled ? "▶" : "⏸";
-    toggleSchedBtn.title = job.disabled ? "Enable schedule" : "Disable schedule";
-    toggleSchedBtn.onclick = async () => {
-        await fetch(`/api/schedules/${job.id}/disabled`, {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ disabled: !job.disabled }),
-        });
-        loadSchedMgr();
-    };
-
     const resetBtn = document.createElement("button");
     resetBtn.className = "btn btn-sm btn-outline-secondary";
     resetBtn.textContent = "Reset Next Run";
@@ -387,7 +432,7 @@ function renderSchedMgrRow(job) {
     editBtn.textContent = "Edit";
     editBtn.onclick = () => editSchedulePlugin(job.plugin_id);
 
-    btnTd.append(toggleSchedBtn, editBtn, resetBtn);
+    btnTd.append(editBtn, resetBtn);
 
     // Task controls (pause, resume, stop) — only when task is active
     const pid = job.plugin_id.replaceAll(".", "__");

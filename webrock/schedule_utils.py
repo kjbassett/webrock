@@ -86,6 +86,33 @@ def form_to_schedule_parts(meta, form):
     return schedule_type, job_args, config
 
 
+def calculate_stop_time(stop_config: dict | None, started_at: float) -> float | None:
+    """Return the Unix timestamp when the running task should be stopped, or None.
+
+    Args:
+        stop_config: The schedule's stop_config dict (from DB), or None.
+        started_at: Unix timestamp when the task started.
+    """
+    if not stop_config:
+        return None
+    stype = stop_config.get("type")
+    if stype == "duration":
+        return started_at + float(stop_config["seconds"])
+    if stype == "at_time":
+        return datetime.fromisoformat(stop_config["stop_at"]).timestamp()
+    if stype == "cron":
+        return calculate_next_run({
+            "type": "cron",
+            "minutes":       stop_config.get("minutes", "*"),
+            "hours":         stop_config.get("hours", "*"),
+            "days_of_week":  stop_config.get("days_of_week", "*"),
+            "days_of_month": stop_config.get("days_of_month", "*"),
+            "months":        stop_config.get("months", "*"),
+            "last_run":      started_at,
+        })
+    return None
+
+
 def calculate_next_run_from_row(row: dict) -> float | None:
     """Convert a DB schedule row to the flat dict format and call calculate_next_run."""
     config = row["config"] if isinstance(row["config"], dict) else json.loads(row["config"])

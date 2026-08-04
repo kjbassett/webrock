@@ -55,6 +55,12 @@ def init_db(db_path: str) -> sqlite3.Connection:
         _conn.commit()
     except sqlite3.OperationalError:
         pass
+    # Migrate: add stop_config column
+    try:
+        _conn.execute("ALTER TABLE schedules ADD COLUMN stop_config TEXT")
+        _conn.commit()
+    except sqlite3.OperationalError:
+        pass
     _conn.commit()
     return _conn
 
@@ -67,23 +73,52 @@ def get_conn() -> sqlite3.Connection:
 
 # --- Schedules ---
 
-def insert_schedule(plugin_id: str, stype: str, args_dict: dict, config_dict: dict, source: str = "web") -> int:
+def insert_schedule(
+    plugin_id: str,
+    stype: str,
+    args_dict: dict,
+    config_dict: dict,
+    source: str = "web",
+    stop_config: dict | None = None,
+) -> int:
     cur = get_conn().execute(
-        "INSERT INTO schedules (plugin_id, type, args, config, created_at, source) VALUES (?, ?, ?, ?, ?, ?)",
-        (plugin_id, stype, json.dumps(args_dict), json.dumps(config_dict), time.time(), source),
+        "INSERT INTO schedules (plugin_id, type, args, config, created_at, source, stop_config)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (
+            plugin_id,
+            stype,
+            json.dumps(args_dict),
+            json.dumps(config_dict),
+            time.time(),
+            source,
+            json.dumps(stop_config) if stop_config else None,
+        ),
     )
     get_conn().commit()
     return cur.lastrowid
 
 
-def update_schedule(schedule_id: int, stype: str, args_dict: dict, config_dict: dict):
+def update_schedule(
+    schedule_id: int,
+    stype: str,
+    args_dict: dict,
+    config_dict: dict,
+    stop_config: dict | None = None,
+) -> None:
     """Update type/args/config on an existing schedule and recompute next_run."""
     from .schedule_utils import calculate_next_run
     flat = {"type": stype, **config_dict}
     next_run = calculate_next_run(flat)
     get_conn().execute(
-        "UPDATE schedules SET type=?, args=?, config=?, next_run=? WHERE id=?",
-        (stype, json.dumps(args_dict), json.dumps(config_dict), next_run, schedule_id),
+        "UPDATE schedules SET type=?, args=?, config=?, next_run=?, stop_config=? WHERE id=?",
+        (
+            stype,
+            json.dumps(args_dict),
+            json.dumps(config_dict),
+            next_run,
+            json.dumps(stop_config) if stop_config else None,
+            schedule_id,
+        ),
     )
     get_conn().commit()
 
@@ -97,6 +132,8 @@ def get_active_schedules() -> list[dict]:
         d = dict(row)
         d["args"] = json.loads(d["args"])
         d["config"] = json.loads(d["config"])
+        raw_stop = d.get("stop_config")
+        d["stop_config"] = json.loads(raw_stop) if raw_stop else None
         result.append(d)
     return result
 
