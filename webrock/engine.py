@@ -288,7 +288,7 @@ class Engine:
 
             await asyncio.sleep(1)
 
-    async def _trigger_after_jobs(self, completed_schedule_id: int) -> None:
+    async def _trigger_after_jobs(self, completed_schedule_id: int, status: str) -> None:
         if self._system_paused:
             return
         for row in db.get_active_schedules():
@@ -296,11 +296,17 @@ class Engine:
                 continue
             if row.get("disabled"):
                 continue
-            if row["config"].get("trigger_id") == completed_schedule_id:
-                plugin = self.plugins[row["plugin_id"]]
-                run_id = db.insert_run(row["id"], row["plugin_id"], row["args"])
-                logger.info("After-triggered start of %s", row["plugin_id"])
-                await self._run_job(plugin, row["plugin_id"], row["args"], run_id, row["id"], row.get("stop_config"))
+            cfg = row["config"]
+            if cfg.get("trigger_id") != completed_schedule_id:
+                continue
+            if status == "success" and not cfg.get("trigger_on_success", True):
+                continue
+            if status == "error" and not cfg.get("trigger_on_error", False):
+                continue
+            plugin = self.plugins[row["plugin_id"]]
+            run_id = db.insert_run(row["id"], row["plugin_id"], row["args"])
+            logger.info("After-triggered start of %s (parent %s)", row["plugin_id"], status)
+            await self._run_job(plugin, row["plugin_id"], row["args"], run_id, row["id"], row.get("stop_config"))
 
     async def _run_job(
         self,
@@ -355,11 +361,14 @@ class Engine:
                     logger.info("Finished %s", plugin["function"].__name__)
                     db.complete_run(run_id, "success", result=result)
                     asyncio.get_running_loop().create_task(
-                        self._trigger_after_jobs(schedule_id)
+                        self._trigger_after_jobs(schedule_id, "success")
                     )
             except Exception as e:
                 logger.error("Error in %s: %s", plugin["function"].__name__, e)
                 db.complete_run(run_id, "error", error=traceback.format_exc())
+                asyncio.get_running_loop().create_task(
+                    self._trigger_after_jobs(schedule_id, "error")
+                )
             finally:
                 # Only reset plugin state if we are still the current task.
                 # stop_if_new_start can start a new task before our callback fires.

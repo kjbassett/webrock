@@ -66,6 +66,8 @@ def form_to_schedule_parts(meta, form):
             config["trigger_id"] = int(trigger_id_raw)
         except (ValueError, TypeError):
             raise ValueError("_trigger_schedule_id must be an integer")
+        config["trigger_on_success"] = form.get("_trigger_on_success", ["false"])[0].lower() in ("true", "on")
+        config["trigger_on_error"] = form.get("_trigger_on_error", ["false"])[0].lower() in ("true", "on")
 
     elif schedule_type == "interval":
         seconds_raw = get_value("_seconds")

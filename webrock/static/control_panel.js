@@ -55,7 +55,13 @@ function formatJob(job) {
     if (job.type === "interval") return `Every ${c.seconds}s`;
     if (job.type === "cron") return `Recurring: ${c.minutes}m ${c.hours}h`;
     if (job.type === "once") return `Specific Time @ ${c.timestamp === "now" ? "now" : c.timestamp}`;
-    if (job.type === "after") return `After schedule #${c.trigger_id}`;
+    if (job.type === "after") {
+        const when = [
+            c.trigger_on_success !== false ? "success" : null,
+            c.trigger_on_error ? "error" : null,
+        ].filter(Boolean).join("/") || "never";
+        return `After schedule #${c.trigger_id} (on ${when})`;
+    }
     return "Unknown";
 }
 
@@ -139,7 +145,11 @@ function openEditForm(job, pluginId) {
     const c = job.config || {};
     if (job.type === "once")          setVal("_timestamp",          c.timestamp === "now" ? "" : (c.timestamp ?? ""));
     else if (job.type === "interval") setVal("_seconds",            c.seconds ?? 60);
-    else if (job.type === "after")    setVal("_trigger_schedule_id",c.trigger_id ?? "");
+    else if (job.type === "after") {
+        setVal("_trigger_schedule_id", c.trigger_id ?? "");
+        document.getElementById(`trigger-on-success-${pluginId}`).checked = c.trigger_on_success ?? true;
+        document.getElementById(`trigger-on-error-${pluginId}`).checked   = c.trigger_on_error   ?? false;
+    }
     else if (job.type === "cron") {
         setVal("_minutes",       c.minutes       ?? "*");
         setVal("_hours",         c.hours         ?? "*");
@@ -193,7 +203,11 @@ async function submitScheduleForm(event, pluginId) {
     let config = {};
     if (stype === "once")          config = { timestamp: data["_timestamp"] || "now" };
     else if (stype === "interval") config = { seconds: parseInt(data["_seconds"] || "60", 10) };
-    else if (stype === "after")    config = { trigger_id: parseInt(data["_trigger_schedule_id"], 10) };
+    else if (stype === "after") config = {
+        trigger_id:         parseInt(data["_trigger_schedule_id"], 10),
+        trigger_on_success: data["_trigger_on_success"] === "on",
+        trigger_on_error:   data["_trigger_on_error"]   === "on",
+    };
     else if (stype === "cron") {
         config = {
             minutes:       data["_minutes"]       || "*",
